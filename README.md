@@ -1,75 +1,95 @@
-<<<<<<< HEAD
-# Getting Started with Create React App
-
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
-
-## Available Scripts
-
-In the project directory, you can run:
-
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-=======
 # QRUTMGenerator
-it is a QR and UTM generator and customizer
->>>>>>> 8dc1653979eb5f84debb4a573d71c016aa2db936
+
+A streamlined QR Code + UTM link generator for outreach, marketing, and analytics. Built with React, Supabase, and Material UI.
+
+---
+
+## 🚀 Features
+
+- **Real-time UTM URL Generator**: Dynamically appends `utm_source`, `utm_medium`, and `utm_campaign` to your base URL.
+- **QR Code Preview**: Live canvas preview with color and logo customization.
+- **PNG & SVG Export**: Export your QR code in either format.
+- **Copy to Clipboard**: Instantly copy the URL or QR code.
+- **Logo Overlay**: Upload your own logo or use the default Road Home Program shield.
+- **Save to Supabase**: Log your generated QR codes for future access.
+- **QR History View**: Regenerate any past QR code.
+- **Snackbar Notifications**: Confirmation messages on success or failure.
+
+---
+
+## 📦 Tech Stack
+
+- **React** (with hooks)
+- **Material UI** (v5)
+- **Supabase** (PostgreSQL backend + REST API)
+- **Canvas API** (for QR code rendering)
+
+---
+
+## 🛠️ Getting Started
+
+### Clone the Repo
+```bash
+git clone https://github.com/cmiller0352/QRUTMGenerator.git
+cd QRUTMGenerator
+```
+
+### Install Dependencies
+```bash
+npm install
+```
+
+### Run Locally
+```bash
+npm start
+```
+This opens `http://localhost:3000`
+
+### Environment Variables
+Create a `.env` file (if needed) and include:
+```
+REACT_APP_SUPABASE_URL=your_supabase_url
+REACT_APP_SUPABASE_ANON_KEY=your_anon_key
+```
+
+---
+
+## 📁 Folder Structure
+```
+├── src/
+│   ├── App.js               # Main UI and logic
+│   ├── CanvasUtils.js       # Drawing/exporting QR logic
+│   ├── HistoryPage.js       # Saved QR codes
+│   ├── supabaseClient.js    # Supabase connection
+│   ├── assets/
+│   │   └── shield.png        # Default logo
+│   └── theme.js             # Material UI theme override
+```
+
+---
+
+## 🔮 Roadmap
+
+- [ ] Support for `utm_term` and `utm_content`
+- [ ] Shortened URLs with redirect tracking
+- [ ] Campaign tagging via AI prompts
+- [ ] View stats like scan count + last scanned timestamp
+- [ ] User login + private history filtering
+
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you’d like to change.
+
+---
+
+## 📄 License
+MIT
+
+---
+
+## 🧠 Author
+Built by [Chris Miller](https://github.com/cmiller0352) at the Road Home Program, Rush University Medical Center.
+
+> Helping veterans, service members, and their families heal from the invisible wounds of war.

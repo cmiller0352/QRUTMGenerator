@@ -14,6 +14,8 @@ import ExportButtons from './Components/ExportButtons';
 import QrCanvas from './Components/QrCanvas';
 import ToastAlerts from './Components/ToastAlerts';
 
+import generateShortCode from './utils/generateShortCode'; // ✅ use lowercase-only utility
+
 const App = () => {
   const [baseUrl, setBaseUrl] = useState('https://roadhomeprogram.org/');
   const [targetUrl, setTargetUrl] = useState(baseUrl);
@@ -55,13 +57,8 @@ const App = () => {
     }
   }, [targetUrl, foregroundColor, backgroundColor, logoFile, logoScale, linkType]);
 
-  const generateShortCode = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  };
-
   const handleSaveQr = async () => {
-    const code = generateShortCode();
+    const code = generateShortCode(); // already lowercase
     const short = `https://qrutmgenerator.vercel.app/${code}`;
 
     const entry = {
@@ -96,11 +93,6 @@ const App = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-        <Typography variant="h5" color="primary">QR + UTM Generator</Typography>
-        <Button variant="outlined" href="/history">View History</Button>
-      </Box>
-
       <TargetUrlInput targetUrl={targetUrl} setBaseUrl={setBaseUrl} />
       <UtmFields
         utmSource={utmSource} setUtmSource={setUtmSource}
@@ -139,6 +131,7 @@ const App = () => {
       <ToastAlerts
         openSnackbar={openSnackbar} setOpenSnackbar={setOpenSnackbar}
         errorSnackbar={errorSnackbar} setErrorSnackbar={setErrorSnackbar}
+        shortCode={shortCode}
       />
     </Container>
   );

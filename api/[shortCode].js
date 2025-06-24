@@ -13,10 +13,12 @@ export default async function handler(req, res) {
     return res.status(400).send('Missing short code');
   }
 
+  const normalizedCode = shortCode.toLowerCase();
+
   const { data, error } = await supabase
     .from('qr_utm_generator_logs')
     .select('full_url')
-    .eq('short_code', shortCode)
+    .eq('short_code', normalizedCode)
     .single();
 
   if (error || !data) {
@@ -30,11 +32,14 @@ export default async function handler(req, res) {
 
   await supabase.from('qr_redirect_logs').insert([
     {
-      short_code: shortCode,
+      short_code: normalizedCode,
       ip_address: Array.isArray(ip) ? ip[0] : ip,
       user_agent: userAgent
     }
   ]);
+
+  console.log('✅ Redirecting:', normalizedCode);
+  console.log('📍 IP:', ip, '| 🧠 Agent:', userAgent);
 
   return res.redirect(302, data.full_url);
 }

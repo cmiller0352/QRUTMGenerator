@@ -1,7 +1,6 @@
 // src/App.js
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Button, Container, Typography } from '@mui/material';
-//import { useSearchParams } from 'react-router-dom';
 import shieldLogo from './assets/shield.png';
 import { drawQrWithLogo } from './CanvasUtils';
 import { supabase } from './supabaseClient';
@@ -28,9 +27,10 @@ const App = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [errorSnackbar, setErrorSnackbar] = useState(false);
   const [linkType, setLinkType] = useState('qr');
+  const [shortCode, setShortCode] = useState('');
+  const [shortUrl, setShortUrl] = useState('');
 
   const canvasRef = useRef(null);
-  //const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const url = new URL(baseUrl);
@@ -55,7 +55,15 @@ const App = () => {
     }
   }, [targetUrl, foregroundColor, backgroundColor, logoFile, logoScale, linkType]);
 
+  const generateShortCode = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  };
+
   const handleSaveQr = async () => {
+    const code = generateShortCode();
+    const short = `https://qrutmgenerator.vercel.app/api/${code}`;
+
     const entry = {
       base_url: baseUrl,
       utm_source: utmSource,
@@ -69,6 +77,7 @@ const App = () => {
       download_format: 'png',
       notes: '',
       full_url: targetUrl,
+      short_code: code,
       link_type: linkType,
       has_qr: linkType !== 'link'
     };
@@ -79,6 +88,8 @@ const App = () => {
       console.error('❌ Error saving to Supabase:', error);
       setErrorSnackbar(true);
     } else {
+      setShortCode(code);
+      setShortUrl(short);
       setOpenSnackbar(true);
     }
   };
@@ -103,8 +114,28 @@ const App = () => {
       />
       <ExportButtons targetUrl={targetUrl} canvasRef={canvasRef} onSave={handleSaveQr} />
       <LogoUpload logoFile={logoFile} setLogoFile={setLogoFile} logoScale={logoScale} setLogoScale={setLogoScale} />
+
       {linkType !== 'link' && <QrCanvas canvasRef={canvasRef} backgroundColor={backgroundColor} />}
-      
+
+      {(shortCode || shortUrl) && (
+        <Box mt={2}>
+          <Typography variant="body2">
+            Short link: <a href={shortUrl} target="_blank" rel="noopener noreferrer">{shortUrl}</a>
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            sx={{ mt: 1 }}
+            onClick={() => {
+              navigator.clipboard.writeText(shortUrl);
+              setOpenSnackbar(true);
+            }}
+          >
+            Copy Short Link
+          </Button>
+        </Box>
+      )}
+
       <ToastAlerts
         openSnackbar={openSnackbar} setOpenSnackbar={setOpenSnackbar}
         errorSnackbar={errorSnackbar} setErrorSnackbar={setErrorSnackbar}

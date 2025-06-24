@@ -2,24 +2,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme';
+
 import App from './App';
 import HistoryPage from './HistoryPage';
-import { ThemeProvider, CssBaseline, createTheme } from '@mui/material';
 import AnalyticsPage from './AnalyticsPage';
-
-const theme = createTheme({
-  palette: {
-    primary: { main: '#006633' },
-    secondary: { main: '#F2AE00' },
-    background: { default: '#EFEFEF' }
-  },
-  typography: {
-    button: {
-      textTransform: 'none',
-      fontWeight: 600
-    }
-  }
-});
+import Layout from './Layout';
 
 const Root = () => (
   <React.StrictMode>
@@ -27,9 +16,11 @@ const Root = () => (
       <CssBaseline />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<App />} />
+            <Route path="history" element={<HistoryPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

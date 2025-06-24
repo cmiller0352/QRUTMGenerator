@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
 import HistoryPage from './HistoryPage';
 import { ThemeProvider, CssBaseline, createTheme } from '@mui/material';
+import AnalyticsPage from './AnalyticsPage';
 
 const theme = createTheme({
   palette: {
@@ -28,6 +29,7 @@ const Root = () => (
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

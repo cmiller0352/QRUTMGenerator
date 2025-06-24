@@ -62,7 +62,7 @@ const App = () => {
 
   const handleSaveQr = async () => {
     const code = generateShortCode();
-    const short = `https://qrutmgenerator.vercel.app/api/${code}`;
+    const short = `https://qrutmgenerator.vercel.app/${code}`;
 
     const entry = {
       base_url: baseUrl,

@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   const { data, error } = await supabase
-    .from('qr_redirects')
+    .from('qr_utm_generator_logs') // ← corrected table
     .select('full_url')
     .eq('short_code', shortCode)
     .single();

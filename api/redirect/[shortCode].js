@@ -40,5 +40,10 @@ export default async function handler(req) {
     }
   ]);
 
+  // ✅ NEW: Increment scan count and last scanned timestamp
+  await supabase.rpc('increment_scan_count', {
+    shortcode_input: shortCode
+  });
+
   return Response.redirect(data.full_url, 302);
 }

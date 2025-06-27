@@ -4,7 +4,7 @@ import { Snackbar, Alert, Box, Typography, Button } from '@mui/material';
 
 const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSnackbar, shortCode }) => {
   const shortLink = shortCode
-    ? `https://qrutmgenerator.vercel.app/api/${shortCode}`
+    ? `https://qrutmgenerator.vercel.app/${shortCode}`
     : null;
 
   return (

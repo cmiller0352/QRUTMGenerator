@@ -18,12 +18,18 @@ const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSna
         <Alert
           onClose={() => setOpenSnackbar(false)}
           severity="success"
-          sx={{ width: '100%' }}
+          sx={{
+            width: '100%',
+            backgroundColor: '#e6ffed', // pale green
+            color: '#1b1b1b',            // very dark gray (almost black)
+            border: '1px solid #c2e4ca',
+            boxShadow: 2,
+          }}
         >
-          QR code saved!
+          <strong>QR code saved!</strong>
           {shortLink && (
             <Box mt={1}>
-              <Typography variant="caption" display="block">
+              <Typography variant="caption" display="block" sx={{ color: '#1b1b1b' }}>
                 Short link:
               </Typography>
               <Typography
@@ -32,7 +38,7 @@ const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSna
                 href={shortLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                sx={{ textDecoration: 'underline', color: '#fff' }}
+                sx={{ textDecoration: 'underline', color: '#1b1b1b' }}
               >
                 {shortLink}
               </Typography>
@@ -40,7 +46,15 @@ const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSna
                 variant="outlined"
                 size="small"
                 onClick={() => navigator.clipboard.writeText(shortLink)}
-                sx={{ ml: 1, color: '#fff', borderColor: '#fff' }}
+                sx={{
+                  ml: 1,
+                  color: '#1b1b1b',
+                  borderColor: '#1b1b1b',
+                  '&:hover': {
+                    backgroundColor: '#d6f5e3',
+                    borderColor: '#1b1b1b',
+                  },
+                }}
               >
                 Copy Short Link
               </Button>
@@ -58,7 +72,13 @@ const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSna
         <Alert
           onClose={() => setErrorSnackbar(false)}
           severity="error"
-          sx={{ width: '100%' }}
+          sx={{
+            width: '100%',
+            backgroundColor: '#ffe6e6',
+            color: '#1b1b1b',
+            border: '1px solid #f5c2c7',
+            boxShadow: 2,
+          }}
         >
           Error saving QR code. Please try again.
         </Alert>

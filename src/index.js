@@ -6,9 +6,11 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import theme from './theme';
 
 import App from './App';
-import HistoryPage from './HistoryPage';
-import AnalyticsPage from './AnalyticsPage';
+import HistoryPage from './pages/HistoryPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 import Layout from './Layout';
+import DashboardPage from './pages/DashboardPage'; // also add this!
+
 
 const Root = () => (
   <React.StrictMode>
@@ -20,6 +22,7 @@ const Root = () => (
             <Route index element={<App />} />
             <Route path="history" element={<HistoryPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

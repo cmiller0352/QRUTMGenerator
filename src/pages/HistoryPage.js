@@ -1,6 +1,6 @@
 // src/HistoryPage.js
 import React, { useEffect, useState } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from '../utils/supabaseClient';
 import {
   Container,
   Typography,

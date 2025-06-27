@@ -1,6 +1,6 @@
 // src/AnalyticsPage.js
 import React, { useEffect, useState, useMemo } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from '../utils/supabaseClient';
 import {
   Chip,
   Container,

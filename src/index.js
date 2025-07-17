@@ -12,6 +12,8 @@ import Layout from './Layout';
 import DashboardPage from './pages/DashboardPage'; // also add this!
 import AuthProvider from './Components/AuthProvider';
 import LoginPage from './pages/LoginPage';
+import PrivateRoute from './Components/PrivateRoute';
+
 
 
 
@@ -23,12 +25,21 @@ const Root = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Layout />}>
-              <Route index element={<App />} />
-              <Route path="login" element={<LoginPage />} />
-              <Route path="history" element={<HistoryPage />} />
-              <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-            </Route>
+  <Route index element={
+    <PrivateRoute><App /></PrivateRoute>
+  } />
+  <Route path="history" element={
+    <PrivateRoute><HistoryPage /></PrivateRoute>
+  } />
+  <Route path="analytics" element={
+    <PrivateRoute><AnalyticsPage /></PrivateRoute>
+  } />
+  <Route path="dashboard" element={
+    <PrivateRoute><DashboardPage /></PrivateRoute>
+  } />
+  <Route path="login" element={<LoginPage />} />
+</Route>
+
           </Routes>
         </AuthProvider>
       </BrowserRouter>

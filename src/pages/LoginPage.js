@@ -11,11 +11,41 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    else navigate('/dashboard');
-  };
+  e.preventDefault();
+
+  const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+  if (loginError) {
+    setError(loginError.message);
+    return;
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // ✅ Check if a profile already exists
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .single();
+
+  // ✅ Only insert if profile doesn't exist
+  if (!existingProfile) {
+    const { error: insertError } = await supabase.from('profiles').insert([
+      {
+        id: user.id,
+        email: user.email,
+        role: 'outreach' // optional default; admin can update later
+      }
+    ]);
+
+    if (insertError) {
+      console.error('Profile insert error:', insertError);
+    }
+  }
+
+  navigate('/dashboard');
+};
+
 
   return (
     <Container maxWidth="xs" sx={{ mt: 8 }}>

@@ -13,7 +13,7 @@ import { supabase } from './utils/supabaseClient';
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, profile } = useUser();
 
   const tabs = ['/', '/history', '/analytics', '/dashboard'];
   const currentTab = tabs.includes(location.pathname) ? tabs.indexOf(location.pathname) : 0;
@@ -30,13 +30,18 @@ const Layout = () => {
         </Tabs>
       </Box>
       <Box textAlign="right" sx={{ mt: 2 }}>
+  {profile && (
+    <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '4px' }}>
+      Welcome, {profile.full_name} ({profile.role})
+    </div>
+  )}
   {user ? (
     <Button onClick={async () => {
-  await supabase.auth.signOut();
-  navigate('/login');
-}}>
-  Logout
-</Button>
+      await supabase.auth.signOut();
+      navigate('/login');
+    }}>
+      Logout
+    </Button>
   ) : (
     <Button component={Link} to="/login">Login</Button>
   )}

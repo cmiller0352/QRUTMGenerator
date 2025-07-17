@@ -29,7 +29,7 @@ const AnalyticsPage = () => {
 
   useEffect(() => {
     const fetchAnalytics = async () => {
-      const { data, error } = await supabase.from('qr_redirect_logs').select('*');
+      const { data, error } = await supabase.from('qr_redirect_logs').select('*').order('created_at',{ascending: false});
       if (error) console.error('Error fetching analytics:', error);
       else setAnalytics(data);
     };

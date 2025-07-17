@@ -20,7 +20,7 @@ const Layout = () => {
 
   return (
     
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth={false} disableGutters sx={{ px: 6, py: 4 }}>
       <Box sx={{ mb: 3 }}>
         <Tabs value={currentTab} onChange={(_, newVal) => navigate(tabs[newVal])} centered>
           <Tab label="Generator" />

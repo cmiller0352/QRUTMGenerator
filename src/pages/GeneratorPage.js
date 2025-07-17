@@ -5,7 +5,6 @@ import shieldLogo from '../assets/shield.png';
 import { drawQrWithLogo } from '../CanvasUtils';
 import { supabase } from '../utils/supabaseClient';
 
-
 import TargetUrlInput from '../Components/TargetUrlInput';
 import UtmFields from '../Components/UtmFields';
 import SaveOptions from '../Components/SaveOptions';
@@ -15,11 +14,10 @@ import ExportButtons from '../Components/ExportButtons';
 import QrCanvas from '../Components/QrCanvas';
 import ToastAlerts from '../Components/ToastAlerts';
 
-import generateShortCode from '../utils/generateShortCode'; // ✅ use lowercase-only utility
+import generateShortCode from '../utils/generateShortCode';
 
 const GeneratorPage = () => {
   const [baseUrl, setBaseUrl] = useState('https://roadhomeprogram.org/');
-  const [targetUrl, setTargetUrl] = useState(baseUrl);
   const [utmSource, setUtmSource] = useState('');
   const [utmMedium, setUtmMedium] = useState('');
   const [utmCampaign, setUtmCampaign] = useState('');
@@ -32,6 +30,7 @@ const GeneratorPage = () => {
   const [linkType, setLinkType] = useState('qr');
   const [shortCode, setShortCode] = useState('');
   const [shortUrl, setShortUrl] = useState('');
+  const [targetUrl, setTargetUrl] = useState('');
 
   const canvasRef = useRef(null);
 
@@ -59,8 +58,17 @@ const GeneratorPage = () => {
   }, [targetUrl, foregroundColor, backgroundColor, logoFile, logoScale, linkType]);
 
   const handleSaveQr = async () => {
-    const code = generateShortCode(); // already lowercase
+    const code = generateShortCode();
     const short = `https://qrutmgenerator.vercel.app/${code}`;
+
+    // ✅ Build URL from scratch at save-time
+    const url = new URL(baseUrl);
+    const params = new URLSearchParams();
+    if (utmSource) params.append('utm_source', utmSource);
+    if (utmMedium) params.append('utm_medium', utmMedium);
+    if (utmCampaign) params.append('utm_campaign', utmCampaign);
+    url.search = params.toString();
+    const fullTargetUrl = url.toString();
 
     const entry = {
       base_url: baseUrl,
@@ -74,7 +82,7 @@ const GeneratorPage = () => {
       logo_url: '',
       download_format: 'png',
       notes: '',
-      full_url: targetUrl,
+      full_url: fullTargetUrl,
       short_code: code,
       link_type: linkType,
       has_qr: linkType !== 'link'
@@ -88,6 +96,7 @@ const GeneratorPage = () => {
     } else {
       setShortCode(code);
       setShortUrl(short);
+      setTargetUrl(fullTargetUrl); // ✅ update display
       setOpenSnackbar(true);
     }
   };

@@ -28,30 +28,43 @@ export default async function handler(req) {
     return new Response('Short link not found', { status: 404 });
   }
 
-  // Headers
-  const userAgent = req.headers.get('user-agent') || '';
-  const ip = req.headers.get('x-forwarded-for') || 'unknown';
-  const referer = req.headers.get('referer') || null;
-  const clientIp = Array.isArray(ip) ? ip[0] : ip.split(',')[0];
+  const fullUrl = data.full_url;
 
-  // Geo-IP Lookup
+  // ✅ Parse UTM from DB-stored full_url (not request)
+  const parsedUrl = new URL(fullUrl);
+  const utm_source = parsedUrl.searchParams.get('utm_source') || null;
+  const utm_medium = parsedUrl.searchParams.get('utm_medium') || null;
+  const utm_campaign = parsedUrl.searchParams.get('utm_campaign') || null;
+  const utm_term = parsedUrl.searchParams.get('utm_term') || null;
+  const utm_content = parsedUrl.searchParams.get('utm_content') || null;
+
+  const userAgent = req.headers.get('user-agent') || '';
+  const referer = req.headers.get('referer') || null;
+
+  // ⚠️ TEMP: Hardcoded IP for testing
+  const clientIp = '8.8.8.8';
+  console.log('Using clientIp:', clientIp);
+
   let city = null, region = null, country = null, postal = null;
-  if (clientIp && !clientIp.startsWith('127.') && clientIp !== '::1') {
-    try {
-      const geoRes = await fetch(`https://ipapi.co/${clientIp}/json/`);
-      const geoData = await geoRes.json();
-      if (!geoData.error) {
-        city = geoData.city || null;
-        region = geoData.region || null;
-        country = geoData.country || null;
-        postal = geoData.postal || null;
-      }
-    } catch (err) {
-      console.error('Geo API failed:', err);
+  let latitude = null, longitude = null;
+
+  try {
+    const geoRes = await fetch(`https://ipapi.co/${clientIp}/json/`);
+    const geoData = await geoRes.json();
+    console.log('[geoData]', geoData);
+
+    if (!geoData.error) {
+      city = geoData.city || null;
+      region = geoData.region || null;
+      country = geoData.country || null;
+      postal = geoData.postal || null;
+      latitude = geoData.latitude ? parseFloat(geoData.latitude) : null;
+      longitude = geoData.longitude ? parseFloat(geoData.longitude) : null;
     }
+  } catch (err) {
+    console.error('Geo IP lookup failed:', err);
   }
 
-  // Infer UTM Source/Medium
   let inferred_source = null;
   let inferred_medium = null;
 
@@ -80,26 +93,39 @@ export default async function handler(req) {
     }
   }
 
-  // Log scan
-  await supabase.from('qr_redirect_logs').insert([
-    {
-      short_code: shortCode,
-      ip_address: clientIp,
-      user_agent: userAgent,
-      referer,
-      inferred_source,
-      inferred_medium,
-      city,
-      region,
-      country,
-      postal_code: postal
-    }
-  ]);
+  const payload = {
+    short_code: shortCode,
+    ip_address: clientIp,
+    user_agent: userAgent,
+    referer,
+    inferred_source,
+    inferred_medium,
+    city,
+    region,
+    country,
+    postal_code: postal,
+    latitude,
+    longitude,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_term,
+    utm_content
+  };
 
-  // Increment scan count
+  console.log('[Insert Payload]', payload);
+
+  const { error: insertError } = await supabase
+    .from('qr_redirect_logs')
+    .insert([payload]);
+
+  if (insertError) {
+    console.error('Insert failed:', insertError);
+  }
+
   await supabase.rpc('increment_scan_count', {
     shortcode_input: shortCode
   });
 
-  return Response.redirect(data.full_url, 302);
+  return Response.redirect(fullUrl, 302);
 }

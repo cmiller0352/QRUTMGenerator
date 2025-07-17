@@ -30,7 +30,7 @@ export default async function handler(req) {
 
   const fullUrl = data.full_url;
 
-  // ✅ Parse UTM from DB-stored full_url (not request)
+  // ✅ Extract UTM from the stored full_url
   const parsedUrl = new URL(fullUrl);
   const utm_source = parsedUrl.searchParams.get('utm_source') || null;
   const utm_medium = parsedUrl.searchParams.get('utm_medium') || null;
@@ -38,13 +38,20 @@ export default async function handler(req) {
   const utm_term = parsedUrl.searchParams.get('utm_term') || null;
   const utm_content = parsedUrl.searchParams.get('utm_content') || null;
 
+  // Headers
   const userAgent = req.headers.get('user-agent') || '';
   const referer = req.headers.get('referer') || null;
 
-  // ⚠️ TEMP: Hardcoded IP for testing
-  const clientIp = '8.8.8.8';
+  // ✅ Extract IP from x-forwarded-for with fallback
+  let clientIp = req.headers.get('x-forwarded-for') || '';
+  clientIp = clientIp.split(',')[0].trim();
+  if (!clientIp || clientIp === '::1' || clientIp.startsWith('127.') || clientIp.startsWith('::ffff:127.')) {
+    clientIp = '8.8.8.8'; // fallback for dev/local/masked IPs
+  }
+
   console.log('Using clientIp:', clientIp);
 
+  // 🌍 Geo-IP Lookup
   let city = null, region = null, country = null, postal = null;
   let latitude = null, longitude = null;
 
@@ -65,6 +72,7 @@ export default async function handler(req) {
     console.error('Geo IP lookup failed:', err);
   }
 
+  // 🧠 Infer from Referer
   let inferred_source = null;
   let inferred_medium = null;
 

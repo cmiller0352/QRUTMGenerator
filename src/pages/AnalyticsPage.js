@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 
 const isProxyCity = (city) => {
-  const proxyCities = ['Boydton', 'Ashburn', 'Redmond'];
+  const proxyCities = ['Boydton', 'Ashburn', 'Redmond', 'Quincy', 'Des Moines', 'Hebron'];
   return proxyCities.includes(city);
 };
 
@@ -100,7 +100,7 @@ const AnalyticsPage = () => {
               <TableCell>
                 {row.city
                   ? isProxyCity(row.city)
-                    ? <Chip label="Estimated" color="warning" size="small" />
+                    ? <Chip label="Possible Data Center" color="warning" size="small" />
                     : <Chip label="Confirmed" color="success" size="small" />
                   : <Chip label="Unknown" size="small" />}
               </TableCell>

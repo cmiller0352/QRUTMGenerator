@@ -59,7 +59,7 @@ const GeneratorPage = () => {
 
   const handleSaveQr = async () => {
     const code = generateShortCode();
-    const short = `https://qrutmgenerator.vercel.app/${code}`;
+    const short = `https://www.roadhome.io/${code}`;
 
     // ✅ Build URL from scratch at save-time
     const url = new URL(baseUrl);

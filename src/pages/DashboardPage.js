@@ -14,6 +14,7 @@ import ScanByDayChart from '../Components/Dashboard/ScanByDayChart';
 import ScanByHourChart from '../Components/Dashboard/ScanByHourChart';
 import DeviceTypeChart from '../Components/Dashboard/DeviceTypeChart';
 import TopCampaignsChart from '../Components/Dashboard/TopCampaignsChart';
+import HeatmapChart from '../Components/Dashboard/HeatmapChart';
 
 const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,7 @@ const DashboardPage = () => {
     cities: [],
     devices: [],
     campaigns: [],
+    locations: [],
   });
 
   const [metrics, setMetrics] = useState({
@@ -58,59 +60,75 @@ const DashboardPage = () => {
     fetchData();
   }, []);
 
-  if (loading)
+  if (loading) {
     return <CircularProgress sx={{ mt: 8, display: 'block', mx: 'auto' }} />;
+  }
 
   return (
-    <Container maxWidth={false} disableGutters sx={{ px: 6, mt: 4, mb: 6 }}>
-      <Box sx={{ maxWidth: '1800px', mx: 'auto' }}>
-        <Typography variant="h4" gutterBottom>
-          OutreachOS Dashboard
-        </Typography>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" gutterBottom>
+        OutreachOS Dashboard
+      </Typography>
 
-        {/* Metrics Summary */}
-        <Grid container spacing={3} sx={{ mt: 3 }}>
-          {[
-            { label: 'QR Codes Created', value: metrics.totalQrCodes },
-            { label: 'Total Scans (Redirects)', value: metrics.totalRedirects },
-            { label: 'Unique Campaigns (with UTM)', value: metrics.totalCampaigns },
-            { label: 'Cities Detected from QR Scans', value: metrics.totalCities },
-          ].map((stat, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
-              <Paper elevation={3} sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  {stat.label}
-                </Typography>
-                <Typography variant="h4" color="primary">{stat.value}</Typography>
-              </Paper>
-            </Grid>
-          ))}
+      {/* Metrics Summary */}
+      <Grid container spacing={3}>
+        {[
+          { label: 'QR Codes Created', value: metrics.totalQrCodes },
+          { label: 'Total Scans (Redirects)', value: metrics.totalRedirects },
+          { label: 'Unique Campaigns', value: metrics.totalCampaigns },
+          { label: 'Cities Detected', value: metrics.totalCities },
+        ].map((stat, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Paper elevation={3} sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {stat.label}
+              </Typography>
+              <Typography variant="h5" color="primary">
+                {stat.value}
+              </Typography>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Row 1: Scans by Day */}
+      <Box sx={{ my: 4 }}>
+        <ScanByDayChart data={chartData.scansByDay} />
+      </Box>
+
+      {/* Row 2: Hour + Device */}
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={6}>
+          <ScanByHourChart data={chartData.scansByHour} />
         </Grid>
-
-        {/* Charts */}
-        <Grid container spacing={4} sx={{ mt: 4 }}>
-          <Grid item xs={12}>
-            <ScanByDayChart data={chartData.scansByDay} />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <ScanByHourChart data={chartData.scansByHour} />
-          </Grid>
-
-          <Grid item xs={12}>
-            <DeviceTypeChart data={chartData.devices} />
-          </Grid>
+        <Grid item xs={12} md={6}>
+          <DeviceTypeChart data={chartData.devices} />
         </Grid>
+      </Grid>
 
-        {/* Cities and Campaigns in their own row */}
-        <Grid container spacing={4} sx={{ mt: 2 }}>
-          <Grid item xs={12} md={6}>
-            <CityChart data={chartData.cities} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TopCampaignsChart data={chartData.campaigns} />
-          </Grid>
-        </Grid>
+      {/* Row 3: Cities + Heatmap */}
+<Box
+  sx={{
+    display: 'flex',
+    flexDirection: { xs: 'column', lg: 'row' },
+    gap: 4,
+    mt: 3,
+    alignItems: 'stretch',
+    width: '100%',
+  }}
+>
+  <Box flex={1} minWidth={0}>
+    <CityChart data={chartData.cities} />
+  </Box>
+  <Box flex={1} minWidth={0}>
+    <HeatmapChart data={chartData.locations || []} />
+  </Box>
+</Box>
+
+
+      {/* Row 4: Top Campaigns */}
+      <Box sx={{ mt: 4 }}>
+        <TopCampaignsChart data={chartData.campaigns} />
       </Box>
     </Container>
   );

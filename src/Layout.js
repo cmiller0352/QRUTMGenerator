@@ -1,6 +1,6 @@
 // src/Layout.js
 import React from 'react';
-import { Container, Tabs, Tab, Box, Button } from '@mui/material';
+import { Tabs, Tab, Box, Button } from '@mui/material';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { useUser } from './Components/useUser';
@@ -20,8 +20,8 @@ const Layout = () => {
 
   return (
     
-    <Container maxWidth={false} disableGutters sx={{ px: 6, py: 4 }}>
-      <Box sx={{ mb: 3 }}>
+    <Box sx={{ px: 6, py: 4, width: '100%' }}>
+  <Box sx={{ mb: 3 }}>
         <Tabs value={currentTab} onChange={(_, newVal) => navigate(tabs[newVal])} centered>
           <Tab label="Generator" />
           <Tab label="History" />
@@ -46,8 +46,12 @@ const Layout = () => {
     <Button component={Link} to="/login">Login</Button>
   )}
 </Box>
-      <Outlet />
-    </Container>
+
+  {/* Force content to full-width grid */}
+  <Box sx={{ width: '100%' }}>
+    <Outlet />
+  </Box>
+</Box>
   );
 };
 

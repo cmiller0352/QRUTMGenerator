@@ -1,3 +1,4 @@
+// src/Pages/DashboardPage.js
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import {
@@ -36,15 +37,31 @@ const DashboardPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Base charts from RPC
       const { data: charts, error } = await supabase.rpc('get_dashboard_data');
-      if (error) console.error('Error fetching dashboard data:', error);
-      else setChartData(charts);
+      if (error) {
+        console.error('Error fetching dashboard data:', error);
+      } else {
+        setChartData(charts || {});
+      }
 
+      // Summary metrics (filter out null/empty)
       const [qrCodesRes, redirectsRes, campaignsRes, citiesRes] = await Promise.all([
         supabase.from('qr_utm_generator_logs').select('*', { count: 'exact', head: true }),
+
         supabase.from('qr_redirect_logs').select('*', { count: 'exact', head: true }),
-        supabase.from('qr_redirect_logs').select('utm_campaign', { distinct: true }),
-        supabase.from('qr_redirect_logs').select('city', { distinct: true }),
+
+        supabase
+          .from('qr_redirect_logs')
+          .select('utm_campaign', { distinct: true })
+          .not('utm_campaign', 'is', null)
+          .neq('utm_campaign', ''),
+
+        supabase
+          .from('qr_redirect_logs')
+          .select('city', { distinct: true })
+          .not('city', 'is', null)
+          .neq('city', ''),
       ]);
 
       setMetrics({
@@ -53,6 +70,27 @@ const DashboardPage = () => {
         totalCampaigns: campaignsRes.data?.length || 0,
         totalCities: citiesRes.data?.length || 0,
       });
+
+      // Top campaigns from normalized view (stable + deduped)
+      const { data: topCampaigns, error: topCampaignsError } = await supabase
+        .from('campaign_counts_norm')
+        .select('utm_campaign:campaign_norm, count')
+        .order('count', { ascending: false })
+        .limit(10);
+
+      if (topCampaignsError) {
+        console.error('Error loading top campaigns (norm):', {
+          message: topCampaignsError.message,
+          details: topCampaignsError.details,
+          hint: topCampaignsError.hint,
+          code: topCampaignsError.code,
+        });
+      } else {
+        setChartData((prev) => ({
+          ...prev,
+          campaigns: topCampaigns || [],
+        }));
+      }
 
       setLoading(false);
     };
@@ -93,42 +131,41 @@ const DashboardPage = () => {
 
       {/* Row 1: Scans by Day */}
       <Box sx={{ my: 4 }}>
-        <ScanByDayChart data={chartData.scansByDay} />
+        <ScanByDayChart data={chartData.scansByDay || []} />
       </Box>
 
       {/* Row 2: Hour + Device */}
       <Grid container spacing={4}>
         <Grid item xs={12} md={6}>
-          <ScanByHourChart data={chartData.scansByHour} />
+          <ScanByHourChart data={chartData.scansByHour || []} />
         </Grid>
         <Grid item xs={12} md={6}>
-          <DeviceTypeChart data={chartData.devices} />
+          <DeviceTypeChart data={chartData.devices || []} />
         </Grid>
       </Grid>
 
       {/* Row 3: Cities + Heatmap */}
-<Box
-  sx={{
-    display: 'flex',
-    flexDirection: { xs: 'column', lg: 'row' },
-    gap: 4,
-    mt: 3,
-    alignItems: 'stretch',
-    width: '100%',
-  }}
->
-  <Box flex={1} minWidth={0}>
-    <CityChart data={chartData.cities} />
-  </Box>
-  <Box flex={1} minWidth={0}>
-    <HeatmapChart data={chartData.locations || []} />
-  </Box>
-</Box>
-
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', lg: 'row' },
+          gap: 4,
+          mt: 3,
+          alignItems: 'stretch',
+          width: '100%',
+        }}
+      >
+        <Box flex={1} minWidth={0}>
+          <CityChart data={chartData.cities || []} />
+        </Box>
+        <Box flex={1} minWidth={0}>
+          <HeatmapChart data={chartData.locations || []} />
+        </Box>
+      </Box>
 
       {/* Row 4: Top Campaigns */}
       <Box sx={{ mt: 4 }}>
-        <TopCampaignsChart data={chartData.campaigns} />
+        <TopCampaignsChart data={chartData.campaigns || []} />
       </Box>
     </Container>
   );

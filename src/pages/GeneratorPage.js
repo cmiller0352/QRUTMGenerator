@@ -29,6 +29,17 @@ import sanitizeShortcode, { withRandomSuffix } from '../utils/sanitizeShortcode'
 
 const SHORT_BASE = 'https://www.roadhome.io';
 
+// Safe URL validator
+const isValidUrl = (value) => {
+  try {
+    // Require protocol for clarity
+    const u = new URL(value);
+    return !!u.protocol && !!u.host;
+  } catch {
+    return false;
+  }
+};
+
 const GeneratorPage = () => {
   // URL + UTM state
   const [baseUrl, setBaseUrl] = useState('https://roadhomeprogram.org/');
@@ -52,26 +63,35 @@ const GeneratorPage = () => {
   const [shortUrl, setShortUrl] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
 
-  // New: shortcode controls
+  // Shortcode controls
   const [customShort, setCustomShort] = useState('');
   const [useCampaignAsShort, setUseCampaignAsShort] = useState(false);
 
   const canvasRef = useRef(null);
 
-  // Compose preview URL as inputs change
+  // Compose preview URL as inputs change (safe if baseUrl is empty/invalid)
   useEffect(() => {
-    const url = new URL(baseUrl);
-    const params = new URLSearchParams();
-    if (utmSource) params.append('utm_source', utmSource);
-    if (utmMedium) params.append('utm_medium', utmMedium);
-    if (utmCampaign) params.append('utm_campaign', utmCampaign);
-    url.search = params.toString();
-    setTargetUrl(url.toString());
+    try {
+      if (!isValidUrl(baseUrl)) {
+        setTargetUrl('');
+        return;
+      }
+      const url = new URL(baseUrl);
+      const params = new URLSearchParams();
+      if (utmSource) params.append('utm_source', utmSource);
+      if (utmMedium) params.append('utm_medium', utmMedium);
+      if (utmCampaign) params.append('utm_campaign', utmCampaign);
+      url.search = params.toString();
+      setTargetUrl(url.toString());
+    } catch (err) {
+      console.error('Invalid base URL while composing preview:', baseUrl, err);
+      setTargetUrl('');
+    }
   }, [baseUrl, utmSource, utmMedium, utmCampaign]);
 
-  // Draw QR when needed
+  // Draw QR when needed (skip if no targetUrl yet)
   useEffect(() => {
-    if (linkType !== 'link') {
+    if (linkType !== 'link' && targetUrl) {
       drawQrWithLogo({
         canvas: canvasRef.current,
         text: targetUrl,
@@ -96,7 +116,6 @@ const GeneratorPage = () => {
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        // PGRST116 is "Results contain 0 rows" for maybeSingle; treat others as fatal
         console.error('Supabase select error (short_code check):', error);
         break;
       }
@@ -112,6 +131,13 @@ const GeneratorPage = () => {
   };
 
   const handleSaveQr = async () => {
+    // Guard: need a valid base URL to save
+    if (!isValidUrl(baseUrl)) {
+      console.error('Save blocked: baseUrl is empty or invalid:', baseUrl);
+      setErrorSnackbar(true);
+      return;
+    }
+
     // 1) Decide shortcode source: custom → campaign (if opted) → random
     let chosen = '';
     if (customShort) {
@@ -124,7 +150,7 @@ const GeneratorPage = () => {
     const code = await resolveUniqueShortcode(chosen);
     const short = `${SHORT_BASE}/${code}`;
 
-    // 3) Build final target URL at save-time
+    // 3) Build final target URL at save-time (safe because baseUrl validated above)
     const url = new URL(baseUrl);
     const params = new URLSearchParams();
     if (utmSource) params.append('utm_source', utmSource);
@@ -180,7 +206,7 @@ const GeneratorPage = () => {
         setUtmCampaign={setUtmCampaign}
       />
 
-      {/* New: Shortcode controls */}
+      {/* Shortcode controls */}
       <Box mt={2}>
         <Stack spacing={1}>
           <TextField

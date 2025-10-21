@@ -5,11 +5,11 @@ import { supabase } from "../../../utils/supabaseClient";
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 
 const BRANCHES = [
-  "Army","Army Reserve","Marine Corps","Marine Corps Reserve","Navy","Navy Reserve",
-  "Air Force","Air Force Reserve","Coast Guard","Coast Guard Reserve","Space Force"
+  "Army","Army Reserve","Army National Guard","Marine Corps","Marine Corps Reserve","Navy","Navy Reserve",
+  "Air Force","Air Force Reserve","Air National Guard","Coast Guard","Coast Guard Reserve","Space Force"
 ];
 const ERAS = [
-  "WWII","Korean War Era","Vietnam War Era","Cold War","Persian Gulf War","OIF/OEF/OND","Other"
+  "WWII","Korean War","Korean War Era","Vietnam","Vietnam War Era","Cold War","Persian Gulf War/Desert Storm","OIF/OEF/OND","Other"
 ];
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida",
@@ -69,6 +69,7 @@ export default function SlotPicker({ eventId }) {
         .from("pickup_slots")
         .select("id,label,capacity,taken,start_utc")
         .eq("event_id", eventId)
+        .neq("label;", "1:30 - 2:00")
         .order("start_utc", { ascending: true });
       if (!error && data) setSlots(data);
       setLoadingSlots(false);

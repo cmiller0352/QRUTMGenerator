@@ -95,3 +95,13 @@
 .tdp-tier ul { margin:0; padding-left:18px; color:#6b5f55; }
 .tdp-tier li { margin:2px 0; }
 .tdp-tier--silver h4 { color:#7a7370; }
+
+/* banner image */
+.tdp-banner{ width:100%; height:auto; border-radius:16px; margin:4px 0 12px; display:block }
+
+/* FYI bubble */
+.tdp-info{
+  display:inline-block; margin:0 0 10px; padding:6px 10px;
+  border-radius:999px; background:#eef7ff; color:#184a77; font-size:13px; border:1px solid #d9ebff;
+}
+

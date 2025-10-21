@@ -1,8 +1,11 @@
 {
   "rewrites": [
-    {
-      "source": "/:shortCode",
-      "destination": "/api/redirect/:shortCode"
-    }
+    { "source": "/r/:shortCode", "destination": "/api/redirect/:shortCode" },
+
+    { "source": "/turkeydrop2025", "destination": "/index.html" },
+    { "source": "/turkeydrop2025/thankyou", "destination": "/index.html" }
+  ],
+  "redirects": [
+    { "source": "/turkeydrop", "destination": "/turkeydrop2025", "permanent": true }
   ]
 }

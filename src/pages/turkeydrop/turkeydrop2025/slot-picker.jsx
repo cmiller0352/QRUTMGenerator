@@ -227,7 +227,7 @@ export default function SlotPicker({ eventId }) {
         return;
       }
       if (body?.ok || body?.success) {
-        window.location.href = "/turkeydrop/thankyou";
+        window.location.href = "/turkeydrop2025/thankyou";
       } else {
         setMessage(`⚠️ ${body?.error || "Unknown error"}`);
       }

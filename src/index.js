@@ -18,6 +18,7 @@ import PrivateRoute from './Components/PrivateRoute';
 // 👇 NEW: RSVP page route (public)
 import TurkeyDropRSVP from './pages/turkeydrop';
 import TurkeyDrop2025 from './pages/turkeydrop/turkeydrop2025';
+import thankyou from './pages/turkeydrop/turkeydrop2025';
 
 const Root = () => (
   <React.StrictMode>
@@ -65,7 +66,7 @@ const Root = () => (
 
               {/* 👇 Public RSVP route */}
               <Route path="turkeydrop" element={<TurkeyDropRSVP />} />
-              <Route path="turkeydrop/thankyou" element={<ThankYouPage />} />
+              <Route path="turkeydrop2025/thankyou" element={<ThankYouPage />} />
               <Route path="/turkeydrop2025" element={<TurkeyDrop2025 />} />
 
 

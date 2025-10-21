@@ -1,9 +1,9 @@
+// src/pages/turkeydrop/turkeydrop2025/index.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../../utils/supabaseClient";
 import SlotPicker from "./slot-picker";
 import "./turkeydrop2025.css";
 import TDBanner from "../../../assets/TD Banner.png";
-
 
 const EVENT_ID = "effingham-2025";
 
@@ -75,6 +75,7 @@ export default function TurkeyDrop2025() {
         </div>
 
         <Sponsors />
+        <MapBlock />
       </section>
 
       <section className="tdp-right">
@@ -86,7 +87,7 @@ export default function TurkeyDrop2025() {
 
 function Sponsors() {
   const logos = [
-    // top sponsors as images:
+    // top sponsors as images (replace srcs with real files when ready)
     { alt: "Sponsor One", src: "/img/sponsors/s1.png" },
     { alt: "Sponsor Two", src: "/img/sponsors/s2.png" },
     { alt: "Sponsor Three", src: "/img/sponsors/s3.png" },
@@ -119,6 +120,38 @@ function Sponsors() {
         <h4>Silver</h4>
         <ul>{silver.map((n,i)=><li key={i}>{n}</li>)}</ul>
       </div>
+    </div>
+  );
+}
+
+function MapBlock() {
+  const addr = "Family Care Associates, 1106 N Merchant St, Effingham, IL 62401";
+  const q = encodeURIComponent(addr);
+  return (
+    <div className="tdp-map">
+      <h3>Map & Directions</h3>
+      <p className="tdp-map-addr">{addr}</p>
+
+      <div className="tdp-map-wrap">
+        <iframe
+          title="Map - Family Care Associates"
+          className="tdp-map-frame"
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+          src={`https://www.google.com/maps?q=${q}&output=embed`}
+        />
+      </div>
+
+      <p className="tdp-map-actions">
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${q}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open in Google Maps
+        </a>
+      </p>
     </div>
   );
 }

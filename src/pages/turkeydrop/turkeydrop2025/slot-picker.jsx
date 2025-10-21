@@ -69,8 +69,8 @@ export default function SlotPicker({ eventId }) {
         .from("pickup_slots")
         .select("id,label,capacity,taken,start_utc")
         .eq("event_id", eventId)
-        .neq("label;", "1:30 - 2:00")
-        .order("start_utc", { ascending: true });
+        .order("start_utc", { ascending: true })
+        .limit(5); // show only the first 5 windows
       if (!error && data) setSlots(data);
       setLoadingSlots(false);
     };
@@ -355,7 +355,7 @@ export default function SlotPicker({ eventId }) {
       {/* Friendly toggles */}
       <div className="tdp-toggles" data-field="toggles">
         <button type="button" className={`tdp-toggle ${rhpClient ? "on":""}`} onClick={()=>setRhpClient(!rhpClient)} aria-pressed={rhpClient}>
-          <i /> Are you a client of the Road Home Program?
+          <i /> Select if you are you a client of the Road Home Program.
         </button>
 
         <button type="button" className={`tdp-toggle ${peerContact ? "on":""}`} onClick={()=>setPeerContact(!peerContact)} aria-pressed={peerContact}>
@@ -363,7 +363,7 @@ export default function SlotPicker({ eventId }) {
         </button>
 
         <button type="button" className={`tdp-toggle ${raffle ? "on":""}`} onClick={()=>setRaffle(!raffle)} aria-pressed={raffle}>
-          <i /> Enter me in the Texas Roadhouse gift card raffle.
+          <i /> Enter me in the Texas Roadhouse gift card raffle for a chance to win one of 5 $40 gift cards.
         </button>
 
         <button

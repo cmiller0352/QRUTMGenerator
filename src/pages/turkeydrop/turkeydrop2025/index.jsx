@@ -134,6 +134,8 @@ function Sponsors() {
           <li>PROBST REFRIGERATION &amp; HEATING, INC.</li>
           <li>VISITING ANGELS HOMECARE AGENCY</li>
         </ul>
+                <br></br>
+
       </div>
 
       <div className="tdp-tier tdp-tier--gold">
@@ -146,13 +148,14 @@ function Sponsors() {
           <li>GOSPEL ASSEMBLY CHURCH</li>
           <li>AFSCME LOCAL 3494 - HEARTLAND HUMAN SERVICES</li>
           <li>KNIGHTS OF COLUMBUS FOURTH DEGREE, EFFINGHAM ASSEMBLY 214</li>
-          <li>L AND OF LINCOLN CREDIT UNION (Effingham South Branch)</li>
+          <li>LAND OF LINCOLN CREDIT UNION (Effingham South Branch)</li>
           <li>SHERWIN-WILLIAMS</li>
           <li>SS CHAD EXPRESS</li>
           <li>T-MOBILE</li>
           <li>THE KRUSTEAZ COMPANY</li>
           <li>WHITNEY ROOFING, INC</li>
         </ul>
+        <br></br>
       </div>
 
       <div className="tdp-tier tdp-tier--silver">
@@ -177,7 +180,10 @@ function Sponsors() {
           <li>WRIGHT CHOICE COUNSELING</li>
         </ul>
       </div>
+       <br></br>
+        <br></br>
     </div>
+   
   );
 }
 

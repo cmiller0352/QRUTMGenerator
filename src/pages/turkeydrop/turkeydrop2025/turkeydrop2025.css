@@ -149,13 +149,26 @@
 .tdp-tier { margin-top: 18px; }
 .tdp-tier h4 { margin: 0 0 6px; color: #2d2a26; }
 
+/* Sponsors – robust, no item splitting */
 .tdp-sponsor-list {
   margin: 0;
-  padding-left: 1.1rem; /* normal bullets */
+  padding-left: 1.1rem;           /* keep normal bullets */
   list-style: disc;
-  columns: 2;           /* compact, two columns on desktop */
-  column-gap: 28px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  column-gap: 28px;               /* horizontal gap */
+  row-gap: 6px;                   /* vertical gap */
 }
+
+/* Guardrails to prevent weird wrapping */
+.tdp-sponsor-list li {
+  break-inside: avoid;            /* no column/grid breaks inside an item */
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  word-break: normal;
+  overflow-wrap: anywhere;        /* long names wrap within the same cell */
+}
+
 @media (max-width: 780px) {
   .tdp-sponsor-list { columns: 1; }
 }
@@ -165,3 +178,7 @@
 .tdp-tier--gold h4     { color: #8a6b1f; }
 .tdp-tier--silver h4   { color: #55616a; }
 
+.tdp-tier--gold .tdp-sponsor-list,
+.tdp-tier--silver .tdp-sponsor-list {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}

@@ -168,6 +168,7 @@ function Sponsors() {
           <li>DANNY’S BAR &amp; GRILL</li>
           <li>DENT COULSON ELDER LAW</li>
           <li>EFFINGHAM PELVIC HEALTH</li>
+          <li>EFFINGHAM DENTAL GROUP</li>
           <li>FARLEY INSURANCE AGENCY</li>
           <li>FIELDCREST HOMES</li>
           <li>INTEGRITY ELECTRIC &amp; PLUMBING</li>

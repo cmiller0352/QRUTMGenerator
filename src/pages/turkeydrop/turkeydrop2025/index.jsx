@@ -117,43 +117,70 @@ export default function TurkeyDrop2025() {
 }
 
 function Sponsors() {
-  const logos = [
-    // top sponsors as images (replace srcs with real files when ready)
-    { alt: "Sponsor One", src: "/img/sponsors/s1.png" },
-    { alt: "Sponsor Two", src: "/img/sponsors/s2.png" },
-    { alt: "Sponsor Three", src: "/img/sponsors/s3.png" },
-    { alt: "Sponsor Four", src: "/img/sponsors/s4.png" },
-    { alt: "Sponsor Five", src: "/img/sponsors/s5.png" },
-    { alt: "Sponsor Six", src: "/img/sponsors/s6.png" },
-    { alt: "Sponsor Seven", src: "/img/sponsors/s7.png" },
-    { alt: "Sponsor Eight", src: "/img/sponsors/s8.png" },
-  ];
-  const gold = ["Gold Sponsor Name A", "Gold Sponsor Name B"];
-  const silver = ["Silver Sponsor Name A", "Silver Sponsor Name B", "Silver Sponsor Name C"];
-
   return (
     <div className="tdp-sponsors">
-      <h3>Co-sponsored by</h3>
-      <div className="tdp-sponsor-grid">
-        {logos.map((l, i) => (
-          <div key={i} className="tdp-sponsor-card">
-            <img src={l.src} alt={l.alt} loading="lazy" />
-          </div>
-        ))}
+      <h3>Event Sponsors</h3>
+      <p className="tdp-sponsor-intro">
+        The 5th Annual Road Home Program Effingham Turkey Drop 2025 is made possible by the
+        generous support of the following sponsor organizations:
+      </p>
+
+      <div className="tdp-tier tdp-tier--platinum">
+        <h4>PLATINUM LEVEL ($1000 or more)</h4>
+        <ul className="tdp-sponsor-list">
+          <li>AMEREN ILLINOIS ENERGY EFFICIENCY PROGRAM</li>
+          <li>ILLINOIS JOINING FORCES</li>
+          <li>J X GIVES BACK FAMILY FOUNDATION</li>
+          <li>PROBST REFRIGERATION &amp; HEATING, INC.</li>
+          <li>VISITING ANGELS HOMECARE AGENCY</li>
+        </ul>
       </div>
 
-      {/* Text tiers under logos */}
-      <div className="tdp-tier">
-        <h4>Gold</h4>
-        <ul>{gold.map((n,i)=><li key={i}>{n}</li>)}</ul>
+      <div className="tdp-tier tdp-tier--gold">
+        <h4>GOLD LEVEL ($500 - $999)</h4>
+        <ul className="tdp-sponsor-list">
+          <li>BROOKSTONE ESTATES</li>
+          <li>CROSSFIT EFFINGHAM</li>
+          <li>FULL CIRCLE REALTY</li>
+          <li>FOX HOLLER COFFEE</li>
+          <li>GOSPEL ASSEMBLY CHURCH</li>
+          <li>AFSCME LOCAL 3494 - HEARTLAND HUMAN SERVICES</li>
+          <li>KNIGHTS OF COLUMBUS FOURTH DEGREE, EFFINGHAM ASSEMBLY 214</li>
+          <li>L AND OF LINCOLN CREDIT UNION (Effingham South Branch)</li>
+          <li>SHERWIN-WILLIAMS</li>
+          <li>SS CHAD EXPRESS</li>
+          <li>T-MOBILE</li>
+          <li>THE KRUSTEAZ COMPANY</li>
+          <li>WHITNEY ROOFING, INC</li>
+        </ul>
       </div>
+
       <div className="tdp-tier tdp-tier--silver">
-        <h4>Silver</h4>
-        <ul>{silver.map((n,i)=><li key={i}>{n}</li>)}</ul>
+        <h4>SILVER LEVEL ($499 or less)</h4>
+        <ul className="tdp-sponsor-list">
+          <li>ACCURACY FIREARMS</li>
+          <li>AGRACEL, INC</li>
+          <li>AMERICAN LEGION POST 120 (EFFINGHAM)</li>
+          <li>BALDA DENTAL</li>
+          <li>DANNY’S BAR &amp; GRILL</li>
+          <li>DENT COULSON ELDER LAW</li>
+          <li>EFFINGHAM PELVIC HEALTH</li>
+          <li>FARLEY INSURANCE AGENCY</li>
+          <li>FIELDCREST HOMES</li>
+          <li>INTEGRITY ELECTRIC &amp; PLUMBING</li>
+          <li>JB ESKER &amp; SONS</li>
+          <li>JEFF SPEER AND ALEXIS SPEER, RE/MAX KEY ADVANTAGE</li>
+          <li>MCMAHON MEATS</li>
+          <li>STATE FARM, TOM HENDERSON, AGENT</li>
+          <li>VFW POST 1769 (EFFINGHAM)</li>
+          <li>WALMART DC 6059</li>
+          <li>WRIGHT CHOICE COUNSELING</li>
+        </ul>
       </div>
     </div>
   );
 }
+
 
 function MapBlock() {
   const addr = "Family Care Associates, 1106 N Merchant St, Effingham, IL 62401";

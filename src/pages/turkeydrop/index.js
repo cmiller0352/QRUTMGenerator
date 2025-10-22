@@ -418,7 +418,7 @@ export default function TurkeyDropRSVP() {
 
         {/* Peer contact opt-in */}
         <fieldset style={{ border:"1px solid #eee", borderRadius:8, padding:12 }} data-field="peerContact">
-          <legend>Would you like to be contacted by a peer veteran or family member of the RHP team about services?</legend>
+          <legend>Would you like to be contacted by a peer, veteran, or family member of the RHP team about our no cost mental health services available to you and/or your family?</legend>
           <label style={{ display:"flex", gap:8, alignItems:"center" }}>
             <input type="checkbox" checked={peerContact} onChange={(e)=> setPeerContact(e.target.checked)} />
             <span>Yes, please reach out.</span>

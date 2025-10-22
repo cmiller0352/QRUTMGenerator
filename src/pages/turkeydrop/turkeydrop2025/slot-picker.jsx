@@ -386,7 +386,7 @@ export default function SlotPicker({ eventId }) {
         </button>
 
         <button type="button" className={`tdp-toggle ${peerContact ? "on":""}`} onClick={()=>setPeerContact(!peerContact)} aria-pressed={peerContact}>
-          <i /> Would you like to be contacted by a peer, veteran, or family member of the Road Home Program team about the services we offer?
+          <i /> Would you like to be contacted by a peer, veteran, or family member of the RHP team about our no cost mental health services available to you and/or your family?
         </button>
 
         <button type="button" className={`tdp-toggle ${raffle ? "on":""}`} onClick={()=>setRaffle(!raffle)} aria-pressed={raffle}>

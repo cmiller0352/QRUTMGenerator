@@ -4,8 +4,15 @@ import { supabase } from "../../../utils/supabaseClient";
 import SlotPicker from "./slot-picker";
 import "./turkeydrop2025.css";
 import TDBanner from "../../../assets/TD Banner.png";
+import ShieldIMG from "../../../assets/rhp-shield.png";
 
 const EVENT_ID = "effingham-2025";
+const pageUrl = "https://www.roadhome.io/turkeydrop2025";
+const pageTitle = "Turkey Drop 2025 — Road Home Program at Rush";
+const description =
+  "Join us in Effingham, Illinois on November 15th for the Road Home Program’s annual Turkey Drop — a free turkey and sides for veterans, service members, and their families. RSVP required.";
+const image = "https://www.roadhome.io/og/turkeydrop2025-banner.png"; // update when ready
+
 
 export default function TurkeyDrop2025() {
   const [counts, setCounts] = useState({ reserved: 0, remaining: 0, total_capacity: 0 });
@@ -31,57 +38,81 @@ export default function TurkeyDrop2025() {
   const pct = total ? Math.min(100, Math.round((filled / total) * 100)) : 0;
 
   return (
-    <main className="tdp-shell">
-      <section className="tdp-left">
-        {/* Banner image */}
-        <img
-          className="tdp-banner"
-          src={TDBanner}
-          alt="Turkey Drop 2025 — Road Home Program"
-        />
+    <>
+      {/* --- Head metadata (React 19 hoists automatically) --- */}
+      <title>{pageTitle}</title>
+      <meta name="description" content={description} />
+      <link rel="canonical" href={pageUrl} />
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={pageUrl} />
+      <meta property="og:title" content={pageTitle} />
+      <meta property="og:description" content={description} />
+      <meta property="og:image" content={image} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={pageUrl} />
+      <meta name="twitter:title" content={pageTitle} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={image} />
 
-        {/* FYI bubble */}
-        <div className="tdp-info">FYI: this event is ~200 miles from Chicago.</div>
+      {/* --- Page content --- */}
+      <main className="tdp-shell">
+         <div
+        className="tdp-bg"
+        /* pass the url via a CSS custom property (works in all bundlers) */
+        style={{ '--bg-url': `url(${ShieldIMG})` }}
+        aria-hidden="true"
+      />
+        <section className="tdp-left">
+          {/* Banner image */}
+          <img
+            className="tdp-banner"
+            src={TDBanner}
+            alt="Turkey Drop 2025 — Road Home Program"
+          />
 
-        <p className="tdp-sub">
-          Sign up for a <strong>FREE frozen turkey with a bag of sides</strong> for your family (feeds up to 4).
-          One meal kit per household.
-        </p>
+          {/* FYI bubble */}
+          <div className="tdp-info">FYI: this event is ~200 miles from Chicago.</div>
 
-        <div className="tdp-block">
-          <h3>Pick-up Location</h3>
-          <p>Family Care Associates<br/>1106 N Merchant St, Effingham, IL 62401</p>
-        </div>
+          <p className="tdp-sub">
+            Sign up for a <strong>FREE frozen turkey with a bag of sides</strong> for your family (feeds up to 4).
+            One meal kit per household.
+          </p>
 
-        <div className="tdp-block">
-          <h3>When</h3>
-          <p>Saturday, <strong>November 15th</strong><br/>11:00 am — 2:00 pm (choose a pickup window)</p>
-        </div>
-
-        <div className="tdp-block">
-          <h3>Eligibility</h3>
-          <p>VALID Mil/Vet ID or DD214 (Veterans, Guard/Reserve, and Active Duty)</p>
-        </div>
-
-        <div className="tdp-block">
-          <h3>Reservations</h3>
-          <div className="tdp-progress">
-            <div className="tdp-progress-bar" style={{ width: `${pct}%` }} />
+          <div className="tdp-block">
+            <h3>Pick-up Location</h3>
+            <p>Family Care Associates<br/>1106 N Merchant St, Effingham, IL 62401</p>
           </div>
-          <div className="tdp-progress-meta">
-            <span>{filled} / {total} filled</span>
-            <span>Remaining kits: {counts.remaining ?? 0}</span>
+
+          <div className="tdp-block">
+            <h3>When</h3>
+            <p>Saturday, <strong>November 15th</strong><br/>11:00 am — 2:00 pm (choose a pickup window)</p>
           </div>
-        </div>
 
-        <Sponsors />
-        <MapBlock />
-      </section>
+          <div className="tdp-block">
+            <h3>Eligibility</h3>
+            <p>VALID Mil/Vet ID or DD214 (Veterans, Guard/Reserve, and Active Duty)</p>
+          </div>
 
-      <section className="tdp-right">
-        <ReservationCard />
-      </section>
-    </main>
+          <div className="tdp-block">
+            <h3>Reservations</h3>
+            <div className="tdp-progress">
+              <div className="tdp-progress-bar" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="tdp-progress-meta">
+              <span>{filled} / {total} filled</span>
+              <span>Remaining kits: {counts.remaining ?? 0}</span>
+            </div>
+          </div>
+
+          <Sponsors />
+          <MapBlock />
+        </section>
+
+        <section className="tdp-right">
+          <ReservationCard />
+        </section>
+      </main>
+    </>
   );
 }
 

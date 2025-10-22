@@ -3,8 +3,40 @@
   --line:#e7e0d4; --slot:#f8f5ef; --slot-sel:#e6f3ea; --slot-full:#f2eeea;
   --radius:14px; --shadow:0 8px 24px rgba(0,0,0,.08);
 }
+
+/* Put the layout above the background layer */
+.tdp-shell{ position: relative; z-index: 1; }
+
+/* Fixed, subtle background (image is passed as a CSS var from React) */
+.tdp-bg{
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* 2-layer background: gradient + your image */
+  background-image:
+    var(--bg-url, none),
+    radial-gradient(
+      ellipse at 30% 20%,
+      rgba(255,255,255,0.00),
+      rgba(255,255,255,0.18) 40%,
+      rgba(255,255,255,0.42) 70%
+    );
+  background-position: 20% 26%, center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: clamp(420px, 42vw, 760px) auto, cover;   /* cover gradient, contain the logo */
+  opacity: .18;                      /* THIS IS WHERE THE ERROR IN OPACITY IS!!!!! */
+  filter: saturate(.8) blur(.2px);
+}
+
+/* keep the form card readable on all screens */
+.tdp-right .tdp-card{
+  backdrop-filter:saturate(100%) blur(0px);
+  background: rgba(255,255,255,0.92);
+}
+
 *{box-sizing:border-box}
-.tdp-shell{display:grid;grid-template-columns:1.2fr .9fr;gap:28px;max-width:1200px;margin:24px auto;padding:12px 20px;color:var(--ink)}
+.tdp-shell{position: relative; z-index: 1;display:grid;grid-template-columns:1.2fr .9fr;gap:28px;max-width:1200px;margin:24px auto;padding:12px 20px;color:var(--ink)}
 @media (max-width:980px){.tdp-shell{grid-template-columns:1fr}}
 .tdp-left{padding:8px}
 .tdp-title{font-size:44px;letter-spacing:.5px;margin:.2rem 0 1rem}
@@ -36,24 +68,6 @@
 .tdp-form label{display:grid;gap:6px;font-weight:600}
 .tdp-form label input,.tdp-form label select{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
 .tdp-muted{color:var(--muted);font-weight:500}
-
-/* Chip/bubble selector */
-.tdp-chips{ display:grid; gap:8px; margin:6px 0 4px }
-.tdp-chips-head{ font-weight:700 }
-.tdp-chips-grid{ display:grid; gap:8px; grid-template-columns:repeat(2, minmax(0,1fr)) }
-@media (max-width:600px){ .tdp-chips-grid{ grid-template-columns:1fr } }
-.tdp-chips-center{ justify-items:center }
-.tdp-chip{
-  display:inline-grid; place-items:center;
-  min-height:40px; padding:8px 14px; border-radius:999px;
-  border:1px solid var(--line); background:#fff; cursor:pointer; user-select:none;
-  transition:all .15s ease;
-}
-.tdp-chip input{ position:absolute; opacity:0; pointer-events:none }
-.tdp-chip.on{ background:var(--slot-sel); border-color:var(--brand) }
-.tdp-chip:hover{ box-shadow:0 1px 0 rgba(0,0,0,.04) }
-.tdp-chip span{ text-align:center; font-weight:600; font-size:14px; line-height:1.1 }
-.tdp-chip-note{ display:grid; gap:6px; margin-top:6px }
 
 /* Slot grid (time windows) */
 .tdp-slotgrid-head{font-weight:700;margin:6px 0}
@@ -89,13 +103,6 @@
 .tdp-msg.ok{border-color:#b7e4c7;background:#ecfff3;color:#125d34}
 .tdp-help{color:var(--muted);font-size:12px;margin:10px 2px 0}
 
-/* Sponsor tiers (if you add them later) */
-.tdp-tier { margin-top:16px; }
-.tdp-tier h4 { margin:0 0 6px; font-size:15px; color:#5b5046; }
-.tdp-tier ul { margin:0; padding-left:18px; color:#6b5f55; }
-.tdp-tier li { margin:2px 0; }
-.tdp-tier--silver h4 { color:#7a7370; }
-
 /* banner image */
 .tdp-banner{ width:100%; height:auto; border-radius:16px; margin:4px 0 12px; display:block }
 
@@ -104,4 +111,35 @@
   display:inline-block; margin:0 0 10px; padding:6px 10px;
   border-radius:999px; background:#eef7ff; color:#184a77; font-size:13px; border:1px solid #d9ebff;
 }
+
+/* New CHIP UI (matches slot look) */
+.chip-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+@media (min-width: 860px){
+  .chip-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+
+.chip-btn{
+  display:flex; align-items:center; justify-content:center;
+  min-height:44px; padding:10px 12px;
+  border:1px solid #e6e1d7; border-radius:12px;
+  background:#fbfaf8; color:#222; font: 500 14px/1.2 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  box-shadow: 0 0 0 0 rgba(0,0,0,.05);
+  cursor:pointer; user-select:none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.chip-btn:hover{ border-color:#d8d2c6; background:#fff; }
+.chip-btn:focus-visible{ outline:0; box-shadow:0 0 0 3px rgba(13,107,59,.25); }
+.chip-btn[aria-pressed="true"]{
+  border-color:#0d6b3b; background:#e9f5ef; color:#0b5b33;
+}
+
+.field-hint{ margin:4px 0 8px; color:#6b675f; font-size:12.5px; }
+
+/* Error ring for chip/slot sections (does not shift layout) */
+.tdp-section { border-radius: 14px; }
+.tdp-err-ring { outline: 2px solid #d33; outline-offset: 2px; border-radius: 14px; }
 

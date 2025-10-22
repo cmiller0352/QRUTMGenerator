@@ -4,13 +4,30 @@ import { supabase } from "../../../utils/supabaseClient";
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 
+// Branch & Era options (UI)
 const BRANCHES = [
-  "Army","Army Reserve","Army National Guard","Marine Corps","Marine Corps Reserve","Navy","Navy Reserve",
-  "Air Force","Air Force Reserve","Air National Guard","Coast Guard","Coast Guard Reserve","Space Force"
+  "Army","Army Reserve","Army National Guard",
+  "Marine Corps","Marine Corps Reserve",
+  "Navy","Navy Reserve",
+  "Air Force","Air Force Reserve","Air National Guard",
+  "Coast Guard","Coast Guard Reserve",
+  "Space Force"
 ];
 const ERAS = [
-  "WWII","Korean War","Korean War Era","Vietnam","Vietnam War Era","Cold War","Persian Gulf War/Desert Storm","OIF/OEF/OND","Other"
+  'WWII',
+  'Korean War Era',
+  'Korean War',
+  'Vietnam War Era',
+  'Vietnam',
+  'Cold War',
+  'Persian Gulf War',
+  'Persian Gulf War/Desert Storm Era', // ← no spaces around the slash
+  'Pre-9/11',
+  'Post-9/11',
+  'OIF/OEF/OND',
+  'Other'
 ];
+
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida",
   "Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine",
@@ -20,7 +37,39 @@ const US_STATES = [
   "Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"
 ];
 
+/** Reusable chip group that behaves like your time-slot buttons */
+function MultiChipGroup({ label, options, values, setValues, idPrefix }) {
+  const toggle = (val) => {
+    setValues((prev) =>
+      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
+    );
+  };
+  return (
+    <div className="tdp-field">
+      <div className="tdp-chips-head">{label}</div>
+      <div className="chip-grid" role="group" aria-label={label}>
+        {options.map((opt) => {
+          const pressed = values.includes(opt);
+          return (
+            <button
+              key={opt}
+              type="button"
+              className="chip-btn"
+              aria-pressed={pressed}
+              onClick={() => toggle(opt)}
+              id={`${idPrefix}-${opt.replace(/\W+/g, "-").toLowerCase()}`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SlotPicker({ eventId }) {
+  // Slots
   const [slots, setSlots] = useState([]);
   const [slotId, setSlotId] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -29,6 +78,7 @@ export default function SlotPicker({ eventId }) {
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
   const [email,     setEmail]     = useState("");
+  const [emailHint,     setEmailHint]     = useState("");
   const [phone,     setPhone]     = useState("");   // formatted display
   const [digits,    setDigits]    = useState("");   // raw digits
 
@@ -39,8 +89,8 @@ export default function SlotPicker({ eventId }) {
   const [zip,      setZip]      = useState("");
 
   const [status, setStatus] = useState("Veteran");
-  const [branches, setBranches] = useState([]);
-  const [eras, setEras] = useState([]);
+  const [branches, setBranches] = useState([]);        // array
+  const [eras, setEras] = useState([]);                // array
   const [eraOther, setEraOther] = useState("");
 
   const [rhpClient, setRhpClient] = useState(false);
@@ -61,7 +111,7 @@ export default function SlotPicker({ eventId }) {
   const [widgetId, setWidgetId] = useState(null);
   const [captchaToken, setCaptchaToken] = useState("");
 
-  // Load slots
+  // Load slots (first five)
   useEffect(() => {
     const load = async () => {
       setLoadingSlots(true);
@@ -70,7 +120,7 @@ export default function SlotPicker({ eventId }) {
         .select("id,label,capacity,taken,start_utc")
         .eq("event_id", eventId)
         .order("start_utc", { ascending: true })
-        .limit(5); // show only the first 5 windows
+        .limit(5);
       if (!error && data) setSlots(data);
       setLoadingSlots(false);
     };
@@ -93,7 +143,7 @@ export default function SlotPicker({ eventId }) {
     const nextDigits = e.target.value.replace(/\D/g, "").slice(0, 10);
     setDigits(nextDigits);
     setPhone(formatPhone(nextDigits));
-    if (errors.phone) setErrors(p => ({ ...p, phone: undefined }));
+    if (errors.phone) setErrors((p) => ({ ...p, phone: undefined }));
     if (nextDigits.length === 10) addr1Ref.current?.focus();
   };
 
@@ -105,7 +155,7 @@ export default function SlotPicker({ eventId }) {
     if (next.length === 5) statusSelectRef.current?.focus();
   };
 
-  // Turnstile
+  // Turnstile init
   useEffect(() => {
     if (!SITE_KEY) return;
     if (document.getElementById("cf-turnstile-script")) {
@@ -194,7 +244,7 @@ export default function SlotPicker({ eventId }) {
       first_name: firstName.trim(),
       last_name:  lastName.trim(),
       email:      email.trim(),
-      phone, // server strips non-digits safely
+      phone, // server strips non-digits
       status,
       branch_of_service: branches,
       era_list: eras,
@@ -240,10 +290,6 @@ export default function SlotPicker({ eventId }) {
     }
   };
 
-  const toggle = (arr, setArr, v) => {
-    setArr(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]);
-  };
-
   return (
     <form className="tdp-form" onSubmit={doSubmit} noValidate>
       <div className="tdp-row">
@@ -281,23 +327,13 @@ export default function SlotPicker({ eventId }) {
       </div>
 
       {/* Service Era chips */}
-      <div className="tdp-chips" data-field="eras">
-        <div className="tdp-chips-head">Service Era (select all that apply)*</div>
-        <div className="tdp-chips-grid tdp-chips-center">
-          {ERAS.map(e => {
-            const on = eras.includes(e);
-            return (
-              <label key={e} className={`tdp-chip ${on ? "on" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => (on ? setEras(eras.filter(x=>x!==e)) : setEras([...eras, e]))}
-                />
-                <span>{e}</span>
-              </label>
-            );
-          })}
-        </div>
+<div data-field="eras" className={`tdp-section ${errors.eras ? "tdp-err-ring" : ""}`}>        <MultiChipGroup
+          label="Service Era (select all that apply)*"
+          options={ERAS}
+          values={eras}
+          setValues={setEras}
+          idPrefix="era"
+        />
       </div>
       {eras.includes("Other") && (
         <label data-field="eraOther" className="tdp-chip-note">
@@ -307,27 +343,18 @@ export default function SlotPicker({ eventId }) {
       )}
 
       {/* Branch chips */}
-      <div className="tdp-chips" data-field="branches">
-        <div className="tdp-chips-head">Branch of Service (select all that apply)*</div>
-        <div className="tdp-chips-grid tdp-chips-center">
-          {BRANCHES.map(b => {
-            const on = branches.includes(b);
-            return (
-              <label key={b} className={`tdp-chip ${on ? "on" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => (on ? setBranches(branches.filter(x=>x!==b)) : setBranches([...branches, b]))}
-                />
-                <span>{b}</span>
-              </label>
-            );
-          })}
-        </div>
+        <div data-field="branches" className={`tdp-section ${errors.branches ? "tdp-err-ring" : ""}`}>
+        <MultiChipGroup
+          label="Branch of Service (select all that apply)*"
+          options={BRANCHES}
+          values={branches}
+          setValues={setBranches}
+          idPrefix="branch"
+        />
       </div>
 
       {/* Slot grid */}
-      <div className="tdp-slotgrid" data-field="slot">
+      <div className={`tdp-slotgrid tdp-section ${errors.slot ? "tdp-err-ring" : ""}`} data-field="slot">
         <div className="tdp-slotgrid-head">Pickup window*</div>
         <div className="tdp-slotgrid-body">
           {loadingSlots && <div className="tdp-slot skel" />}
@@ -352,18 +379,18 @@ export default function SlotPicker({ eventId }) {
         </div>
       </div>
 
-      {/* Friendly toggles */}
+      {/* Big toggles */}
       <div className="tdp-toggles" data-field="toggles">
         <button type="button" className={`tdp-toggle ${rhpClient ? "on":""}`} onClick={()=>setRhpClient(!rhpClient)} aria-pressed={rhpClient}>
           <i /> Select if you are you a client of the Road Home Program.
         </button>
 
         <button type="button" className={`tdp-toggle ${peerContact ? "on":""}`} onClick={()=>setPeerContact(!peerContact)} aria-pressed={peerContact}>
-          <i /> Would you like to be contacted by a peer veteran or family member of the RHP team about services?
+          <i /> Would you like to be contacted by a peer, veteran, or family member of the Road Home Program team about the services we offer?
         </button>
 
         <button type="button" className={`tdp-toggle ${raffle ? "on":""}`} onClick={()=>setRaffle(!raffle)} aria-pressed={raffle}>
-          <i /> Enter me in the Texas Roadhouse gift card raffle for a chance to win one of 5 $40 gift cards.
+          <i /> Enter me in the Mattoon Texas Roadhouse raffle for a chance to win one of 5 $40 restaurant gift cards.
         </button>
 
         <button

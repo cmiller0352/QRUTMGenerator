@@ -143,42 +143,73 @@
 .tdp-section { border-radius: 14px; }
 .tdp-err-ring { outline: 2px solid #d33; outline-offset: 2px; border-radius: 14px; }
 
-/* Sponsors – text only */
-.tdp-sponsor-intro { color: var(--muted); margin: 6px 0 10px; }
+/* ——— Sponsors (text-only, perfectly aligned & responsive) ——— */
+.tdp-sponsors { margin-top: 28px; }
 
-.tdp-tier { margin-top: 18px; }
-.tdp-tier h4 { margin: 0 0 6px; color: #2d2a26; }
+.tdp-sponsor-intro {
+  color: var(--muted);
+  margin: 6px 0 12px;
+}
 
-/* Sponsors – robust, no item splitting */
+.tdp-tier { margin-top: 20px; }
+.tdp-tier h4 {
+  margin: 0 0 6px;
+  color: #2d2a26;
+  font-weight: 700;
+}
+
+/* CORE LIST LAYOUT
+   - grid prevents items from splitting
+   - custom bullet ensures perfectly aligned wraps
+*/
 .tdp-sponsor-list {
   margin: 0;
-  padding-left: 1.1rem;           /* keep normal bullets */
-  list-style: disc;
+  padding: 0;                       /* remove default list padding */
+  list-style: none;                  /* we’ll draw our own bullets */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  column-gap: 28px;               /* horizontal gap */
-  row-gap: 6px;                   /* vertical gap */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px 28px;                     /* row-gap, col-gap */
 }
 
-/* Guardrails to prevent weird wrapping */
 .tdp-sponsor-list li {
-  break-inside: avoid;            /* no column/grid breaks inside an item */
+  position: relative;
+  padding-left: 1.1rem;              /* room for the bullet */
+  line-height: 1.35;
+  break-inside: avoid;               /* no breaks inside cells */
   -webkit-column-break-inside: avoid;
   page-break-inside: avoid;
+  overflow-wrap: anywhere;           /* long names wrap nicely */
   word-break: normal;
-  overflow-wrap: anywhere;        /* long names wrap within the same cell */
 }
 
-@media (max-width: 780px) {
-  .tdp-sponsor-list { columns: 1; }
+.tdp-sponsor-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #444;                       /* bullet color */
+  line-height: 1.35;
 }
 
-/* Optional subtle accents by tier */
+/* Tier accents */
 .tdp-tier--platinum h4 { color: #0d6b3b; }
-.tdp-tier--gold h4     { color: #8a6b1f; }
-.tdp-tier--silver h4   { color: #55616a; }
+.tdp-tier--gold     h4 { color: #8a6b1f; }
+.tdp-tier--silver   h4 { color: #55616a; }
 
+/* Slightly denser columns for tiers with longer lists */
 .tdp-tier--gold .tdp-sponsor-list,
 .tdp-tier--silver .tdp-sponsor-list {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+/* Responsive collapse */
+@media (max-width: 900px) {
+  .tdp-sponsor-list {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .tdp-sponsor-list {
+    grid-template-columns: 1fr;      /* single column on small screens */
+  }
 }

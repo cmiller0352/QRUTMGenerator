@@ -14,6 +14,7 @@ import ThankYouPage from './pages/turkeydrop/thankyou';
 import AuthProvider from './Components/AuthProvider';
 import LoginPage from './pages/LoginPage';
 import PrivateRoute from './Components/PrivateRoute';
+import TurkeyDashboard from './pages/TurkeyDashboard'
 
 // 👇 NEW: RSVP page route (public)
 import TurkeyDropRSVP from './pages/turkeydrop';
@@ -67,7 +68,7 @@ const Root = () => (
               <Route path="turkeydrop" element={<TurkeyDropRSVP />} />
               <Route path="turkeydrop2025/thankyou" element={<ThankYouPage />} />
               <Route path="/turkeydrop2025" element={<TurkeyDrop2025 />} />
-
+              <Route path="/admin/rsvps" element={<TurkeyDashboard />} />
 
               {/* Auth */}
               <Route path="login" element={<LoginPage />} />

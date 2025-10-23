@@ -7,13 +7,12 @@
 /* Put the layout above the background layer */
 .tdp-shell{ position: relative; z-index: 1; }
 
-/* Fixed, subtle background (image is passed as a CSS var from React) */
+/* Fixed, subtle background (image passed via CSS var from React) */
 .tdp-bg{
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 0;              /* behind page content */
   pointer-events: none;
-  /* 2-layer background: gradient + your image */
   background-image:
     var(--bg-url, none),
     radial-gradient(
@@ -24,10 +23,20 @@
     );
   background-position: 20% 26%, center;
   background-repeat: no-repeat, no-repeat;
-  background-size: clamp(420px, 42vw, 760px) auto, cover;   /* cover gradient, contain the logo */
-  opacity: .18;                      /* THIS IS WHERE THE ERROR IN OPACITY IS!!!!! */
+  background-size: clamp(420px, 42vw, 760px) auto, cover;
+  opacity: .18;            /* subtle watermark */
   filter: saturate(.8) blur(.2px);
 }
+
+/* ensure content sits above the watermark */
+.tdp-shell, .tdp-left, .tdp-right { position: relative; z-index: 1; }
+
+/* keep the form card readable on all screens */
+.tdp-right .tdp-card{
+  backdrop-filter: saturate(100%) blur(0px);
+  background: rgba(255,255,255,0.92);
+}
+
 
 /* keep the form card readable on all screens */
 .tdp-right .tdp-card{
@@ -143,64 +152,46 @@
 .tdp-section { border-radius: 14px; }
 .tdp-err-ring { outline: 2px solid #d33; outline-offset: 2px; border-radius: 14px; }
 
-/* ——— Sponsors (text-only, perfectly aligned & responsive) ——— */
-.tdp-sponsors { margin-top: 28px; }
-
-.tdp-sponsor-intro {
-  color: var(--muted);
-  margin: 6px 0 12px;
-}
-
-.tdp-tier { margin-top: 20px; }
-.tdp-tier h4 {
-  margin: 0 0 6px;
-  color: #2d2a26;
-  font-weight: 700;
-}
-
-/* CORE LIST LAYOUT
-   - grid prevents items from splitting
-   - custom bullet ensures perfectly aligned wraps
-*/
-.tdp-sponsor-list {
+/* Sponsors – switch to masonry columns on wider screens */
+.tdp-sponsor-list{
   margin: 0;
-  padding: 0;                       /* remove default list padding */
-  list-style: none;                  /* we’ll draw our own bullets */
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 6px 28px;                     /* row-gap, col-gap */
+  padding: 0 0 0 1.1rem;            /* keep bullets */
+  list-style: disc;
+  list-style-position: inside;
 }
 
-.tdp-sponsor-list li {
-  position: relative;
-  padding-left: 1.1rem;              /* room for the bullet */
-  line-height: 1.35;
-  break-inside: avoid;               /* no breaks inside cells */
+/* Desktop/tablet: columns = gapless masonry */
+@media (min-width: 820px){
+  .tdp-sponsor-list{
+    columns: 2;                     /* number of columns */
+    column-gap: 28px;               /* space between columns */
+  }
+  /* optional: Silver/Gold have more items → 3 columns on large screens */
+  @media (min-width: 1200px){
+    .tdp-tier--gold  .tdp-sponsor-list,
+    .tdp-tier--silver.tdp-tier .tdp-sponsor-list,
+    .tdp-tier--silver .tdp-sponsor-list{
+      columns: 3;
+    }
+  }
+}
+
+/* Mobile: single column (readable) */
+@media (max-width: 819.98px){
+  .tdp-sponsor-list{ columns: 1; }
+}
+
+/* Keep each item intact; prevent splitting across columns */
+.tdp-sponsor-list li{
+  break-inside: avoid;
   -webkit-column-break-inside: avoid;
   page-break-inside: avoid;
-  overflow-wrap: anywhere;           /* long names wrap nicely */
-  word-break: normal;
-}
-
-.tdp-sponsor-list li::before {
-  content: "•";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: #444;                       /* bullet color */
+  margin: 4px 0;                    /* consistent vertical rhythm */
   line-height: 1.35;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
-/* Tier accents */
-.tdp-tier--platinum h4 { color: #0d6b3b; }
-.tdp-tier--gold     h4 { color: #8a6b1f; }
-.tdp-tier--silver   h4 { color: #55616a; }
-
-/* Slightly denser columns for tiers with longer lists */
-.tdp-tier--gold .tdp-sponsor-list,
-.tdp-tier--silver .tdp-sponsor-list {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
 
 /* Responsive collapse */
 @media (max-width: 900px) {
@@ -213,3 +204,84 @@
     grid-template-columns: 1fr;      /* single column on small screens */
   }
 }
+/* ——— Footer (RHP look & feel) ——— */
+.tdp-footer {
+  margin-top: 28px;
+  background: #0a5d36; /* RHP green */
+  color: #f3f6f4;
+  position: relative;
+  z-index: 10;          /* above watermark */
+  isolation: isolate;   /* own stacking context */
+}
+
+/* paints a solid layer so watermark cannot show through */
+.tdp-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #0a5d36;
+  z-index: -1;
+}
+
+.tdp-footer__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 22px 16px 26px;
+  display: grid;
+  grid-template-columns: 1.3fr 2fr;
+  gap: 14px 28px;
+}
+
+/* Brand block with shield on the left */
+.tdp-footer__brand {
+  display: grid;
+  grid-template-columns: 92px 1fr;  /* bigger shield */
+  gap: 14px;
+  align-items: start;
+}
+.tdp-footer__shield {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  opacity: .95;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.2));
+}
+
+.tdp-footer__title { font-weight: 800; letter-spacing: .2px; line-height: 1.2; }
+.tdp-footer__org   { color: #d9e6de; font-size: .95rem; line-height: 1.35; }
+.tdp-footer__contact { margin-top: 6px; font-size: .95rem; color: #e6f1ea; }
+.tdp-dot { margin: 0 .5ch; color: #b9d3c7; }
+
+.tdp-footer a {
+  color: #e0f5eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tdp-footer a:hover { color: #ffffff; }
+
+.tdp-footer__nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px 16px;
+  align-content: start;
+  line-height: 1.35;
+}
+
+.tdp-footer__legal {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  color: #cfe3d8;
+  font-size: .9rem;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .tdp-footer__inner { grid-template-columns: 1fr; gap: 14px; }
+  .tdp-footer__brand { grid-template-columns: 72px 1fr; gap: 10px; }
+  .tdp-footer__shield { width: 72px; height: 72px; }
+  .tdp-footer__nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .tdp-footer__nav { grid-template-columns: 1fr; }
+}
+

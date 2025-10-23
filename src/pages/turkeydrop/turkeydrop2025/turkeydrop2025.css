@@ -285,3 +285,17 @@
   .tdp-footer__nav { grid-template-columns: 1fr; }
 }
 
+/* Sponsor tier heading colors (restore) */
+.tdp-tier { margin-top: 20px; }
+.tdp-tier h4 {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+
+.tdp-tier--platinum h4 { color: #0d6b3b; } /* RHP green */
+.tdp-tier--gold     h4 { color: #8a6b1f; } /* gold */
+.tdp-tier--silver   h4 { color: #55616a; } /* silver */
+
+/* optional: subtler bullet color for sponsor lists */
+.tdp-sponsor-list { color: inherit; }
+.tdp-sponsor-list li::marker { color: #5b5b5b; }

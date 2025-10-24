@@ -193,10 +193,12 @@ function Sponsors() {
           <li>BALDA DENTAL</li>
           <li>DANNY’S BAR &amp; GRILL</li>
           <li>DENT COULSON ELDER LAW</li>
+          <li>DUST & SON AUTO SUPPLY</li>
           <li>EFFINGHAM PELVIC HEALTH</li>
           <li>EFFINGHAM DENTAL GROUP</li>
           <li>FARLEY INSURANCE AGENCY</li>
           <li>FIELDCREST HOMES</li>
+          <li>HANGAR 18</li>
           <li>INTEGRITY ELECTRIC &amp; PLUMBING</li>
           <li>JB ESKER &amp; SONS</li>
           <li>JEFF SPEER AND ALEXIS SPEER, RE/MAX KEY ADVANTAGE</li>

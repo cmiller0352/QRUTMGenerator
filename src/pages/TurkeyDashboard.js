@@ -178,11 +178,80 @@ export default function AdminDashboard() {
     }
   }
 
-  // export current rows to CSV
-  async function handleExport() {
-    const blob = toCsv(rows);
-    await downloadBlob(blob, `rsvps_export_${new Date().toISOString().slice(0,10)}.csv`);
+  // Replace the existing handleExport() in TurkeyDashboard.js with this:
+async function handleExport() {
+  try {
+    const baseUrl = process.env.REACT_APP_SUPABASE_URL;
+    const anonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+    if (!baseUrl || !anonKey) throw new Error("Missing Supabase env vars");
+
+    // We export from the VIEW so we get all nicely joined labels
+    const endpoint = `${baseUrl}/rest/v1/v_rsvps_export`;
+
+    // Build query params to respect current filters + search (but ignore pagination)
+    const params = new URLSearchParams();
+
+    // Select all columns in the view (you can narrow this if desired)
+    params.set("select", "*");
+
+    // Order for deterministic CSV
+    params.set("order", "created_at.asc");
+
+    // Filters
+    if (eventFilter?.trim()) {
+      // ilike on event_name (server-side)
+      params.set("event_name", `ilike.*${eventFilter.trim()}*`);
+    }
+    if (fromISO) params.set("created_at", `gte.${fromISO}`);
+    if (toISO)   params.append("created_at", `lte.${toISO}`); // multiple filters OK via repeated keys
+
+    // Server-side OR search across common fields (matches your client search behavior)
+    if (search?.trim()) {
+      const s = search.trim().replace(/[,()]/g, ""); // keep it simple + safe
+      // PostgREST OR syntax
+      const orExpr =
+        `or=(` +
+        [
+          `first_name.ilike.*${s}*`,
+          `last_name.ilike.*${s}*`,
+          `email.ilike.*${s}*`,
+          `phone.ilike.*${s}*`,
+          `city.ilike.*${s}*`,
+          `state.ilike.*${s}*`,
+          `slot_label.ilike.*${s}*`,
+          `event_name.ilike.*${s}*`,
+        ].join(",") +
+        `)`;
+      params.set("or", orExpr);
+    }
+
+    const url = `${endpoint}?${params.toString()}`;
+
+    const resp = await fetch(url, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        Accept: "text/csv",
+      },
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`CSV export failed (${resp.status}) ${txt.slice(0, 200)}`);
+    }
+
+    const csv = await resp.text();
+
+    // Reuse your existing download helper if you want — or do it inline:
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    await downloadBlob(blob, `rsvps_export_${stamp}.csv`);
+  } catch (e) {
+    console.error("Export CSV error:", e);
+    alert(e.message || "Export failed");
   }
+}
+
 
   // manual add submit (posts to Edge Function)
   async function submitAdd(e) {

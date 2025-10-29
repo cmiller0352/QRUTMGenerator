@@ -76,9 +76,11 @@ export default function TurkeyDrop2025() {
           </div>
 
           <p className="tdp-sub">
-            Sign up for a <strong>FREE frozen turkey with a bag of sides</strong>{" "}
-            for your family (feeds up to 4). One meal kit per household.
-          </p>
+  Sign up for a <strong>FREE Thanksgiving meal kit</strong> for your family — now
+  including an <strong>Aldi gift card</strong> to cover a turkey and sides (feeds
+  up to 4). One meal kit per household.
+</p>
+
 
           <div className="tdp-block">
             <h3>Pick-up Location</h3>

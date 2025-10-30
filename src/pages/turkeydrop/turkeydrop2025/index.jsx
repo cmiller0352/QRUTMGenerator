@@ -77,9 +77,11 @@ export default function TurkeyDrop2025() {
 
           <p className="tdp-sub">
   Sign up for a <strong>FREE Thanksgiving meal kit</strong> for your family — now
-  including an <strong>Aldi gift card</strong> to cover a turkey and sides (feeds
-  up to 4). One meal kit per household.
+  including an <strong>Aldi gift card</strong> to cover the cost of a turkey.
+  Thanksgiving sides (feeds up to 4) will be provided at pickup. One meal kit per
+  household.
 </p>
+
 
 
           <div className="tdp-block">

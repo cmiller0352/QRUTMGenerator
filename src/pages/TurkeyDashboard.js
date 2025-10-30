@@ -11,11 +11,11 @@ const THEME = {
   green: "#006633",
   yellow: "#F2AE00",
   lightYellow: "#FEF3B5",
-  white: "#EFEFEF",
+  white: "#EFEFEF", // brand "white" (light gray background)
   black: "#000000",
+  rowHighlight: "#E7F4EC", // very light green for opt-in highlight
 };
 
-// Order your labels here if you don't have a true start time in DB:
 const SLOT_ORDER = [
   "11:00–11:30 am",
   "11:30–12:00 pm",
@@ -42,9 +42,11 @@ export default function TurkeyDashboard() {
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
 
-  // NEW: structured filters for exact matching via chips
-  const [branchFilter, setBranchFilter] = useState(""); // exact, from chip
-  const [eraFilter, setEraFilter] = useState("");       // exact, from chip
+  // Exact filters from chips / KPIs
+  const [branchFilter, setBranchFilter] = useState("");
+  const [eraFilter, setEraFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState(""); // "", "yes", "no"
+  const [contactFilter, setContactFilter] = useState(""); // "", "yes", "no"
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -57,31 +59,50 @@ export default function TurkeyDashboard() {
   const [eraCounts, setEraCounts] = useState({});
   const [slotCounts, setSlotCounts] = useState({});
   const [slotCapacities, setSlotCapacities] = useState({});
+  const [clientCounts, setClientCounts] = useState({ yes: 0, no: 0, total: 0 });
+  const [contactCounts, setContactCounts] = useState({ yes: 0, no: 0, total: 0 });
   const [showInsights, setShowInsights] = useState(false);
 
   const fromISO = useMemo(() => (fromDate ? `${fromDate}T00:00:00` : null), [fromDate]);
   const toISO = useMemo(() => (toDate ? `${toDate}T23:59:59.999` : null), [toDate]);
 
   const buildQuery = (selectCols = "*") => {
-    let q = supabase.from(VIEW).select(selectCols, { count: "exact" }).order("created_at", { ascending: false });
+    let q = supabase
+      .from(VIEW)
+      .select(selectCols, { count: "exact" })
+      .order("created_at", { ascending: false });
 
     if (eventFilter?.trim()) q = q.ilike("event_name", `%${eventFilter.trim()}%`);
     if (fromISO) q = q.gte("created_at", fromISO);
     if (toISO) q = q.lte("created_at", toISO);
 
-    // NEW: exact filters from chips (arrays)
+    // Exact filters
     if (branchFilter) q = q.contains("branch_of_service", [branchFilter]);
     if (eraFilter) q = q.contains("era_list", [eraFilter]);
+    if (clientFilter === "yes") q = q.eq("rhp_client_status", true);
+    if (clientFilter === "no") q = q.eq("rhp_client_status", false);
+    if (contactFilter === "yes") q = q.eq("peer_contact_opt_in", true);
+    if (contactFilter === "no") q = q.eq("peer_contact_opt_in", false);
 
-    // Free-text search remains fuzzy (good for names, emails, etc.)
+    // Fuzzy search
     if (search?.trim()) {
       const s = search.trim().replace(/[(),]/g, "");
       const digits = s.replace(/\D/g, "");
-
       const cols = [
-        "first_name", "last_name", "email", "phone",
-        "status", "era", "era_other", "address1", "address2",
-        "city", "state", "postal_code", "ticket_code", "slot_label",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "status",
+        "era",
+        "era_other",
+        "address1",
+        "address2",
+        "city",
+        "state",
+        "postal_code",
+        "ticket_code",
+        "slot_label",
         "branch_of_service_txt",
         "era_list_txt",
       ];
@@ -96,7 +117,8 @@ export default function TurkeyDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true); setErr("");
+      setLoading(true);
+      setErr("");
       try {
         let q = buildQuery("*");
         const from = page * PAGE_SIZE;
@@ -104,32 +126,45 @@ export default function TurkeyDashboard() {
         q = q.range(from, to);
         const { data, error, count } = await q;
         if (error) throw error;
-        if (!cancelled) { setRows(data ?? []); setTotal(count ?? 0); }
+        if (!cancelled) {
+          setRows(data ?? []);
+          setTotal(count ?? 0);
+        }
       } catch (e) {
         if (!cancelled) setErr(e.message || "Failed to load");
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventFilter, fromISO, toISO, search, page, branchFilter, eraFilter]);
+  }, [eventFilter, fromISO, toISO, search, page, branchFilter, eraFilter, clientFilter, contactFilter]);
 
-  useEffect(() => { setPage(0); }, [eventFilter, fromISO, toISO, search, branchFilter, eraFilter]);
+  useEffect(() => {
+    setPage(0);
+  }, [eventFilter, fromISO, toISO, search, branchFilter, eraFilter, clientFilter, contactFilter]);
 
   // KPI fetch (lightweight)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await buildQuery("branch_of_service, era, era_list, slot_label, slot_capacity");
+        const { data, error } = await buildQuery(
+          "branch_of_service, era, era_list, slot_label, slot_capacity, rhp_client_status, peer_contact_opt_in"
+        );
         if (error) throw error;
         const list = data || [];
 
         // Branch counts
         const bmap = {};
         for (const r of list) {
-          const arr = Array.isArray(r.branch_of_service) ? r.branch_of_service : (r.branch_of_service ? [r.branch_of_service] : []);
+          const arr = Array.isArray(r.branch_of_service)
+            ? r.branch_of_service
+            : r.branch_of_service
+            ? [r.branch_of_service]
+            : [];
           for (const b of arr) {
             const key = (b || "").trim();
             if (!key) continue;
@@ -137,10 +172,11 @@ export default function TurkeyDashboard() {
           }
         }
 
-        // Era counts (prefer era_list)
+        // Era counts
         const emap = {};
         for (const r of list) {
-          const items = Array.isArray(r.era_list) && r.era_list.length ? r.era_list : (r.era ? [r.era] : []);
+          const items =
+            Array.isArray(r.era_list) && r.era_list.length ? r.era_list : r.era ? [r.era] : [];
           for (const e of items) {
             const key = (e || "").trim();
             if (!key) continue;
@@ -149,7 +185,8 @@ export default function TurkeyDashboard() {
         }
 
         // Slot counts + capacity
-        const smap = {}; const cap = {};
+        const smap = {};
+        const cap = {};
         for (const r of list) {
           const label = (r.slot_label || "").trim();
           if (!label) continue;
@@ -157,21 +194,38 @@ export default function TurkeyDashboard() {
           if (r.slot_capacity != null) cap[label] = r.slot_capacity;
         }
 
+        // Client / Contact counts
+        let cYes = 0,
+          cNo = 0,
+          pYes = 0,
+          pNo = 0;
+        for (const r of list) {
+          if (r.rhp_client_status === true) cYes++;
+          else if (r.rhp_client_status === false) cNo++;
+
+          if (r.peer_contact_opt_in === true) pYes++;
+          else if (r.peer_contact_opt_in === false) pNo++;
+        }
+
         if (!cancelled) {
           setBranchCounts(bmap);
           setEraCounts(emap);
           setSlotCounts(smap);
           setSlotCapacities(cap);
+          setClientCounts({ yes: cYes, no: cNo, total: list.length });
+          setContactCounts({ yes: pYes, no: pNo, total: list.length });
         }
       } catch {
         // ignore KPI errors
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventFilter, fromISO, toISO, search, branchFilter, eraFilter]);
+  }, [eventFilter, fromISO, toISO, search, branchFilter, eraFilter, clientFilter, contactFilter]);
 
-  // Export (all rows that match current filters)
+  // Export everything that matches current filters
   const exportAll = async () => {
     try {
       setLoading(true);
@@ -187,35 +241,51 @@ export default function TurkeyDashboard() {
         { h: "Email", a: (r) => r.email ?? "" },
         { h: "Phone", a: (r) => r.phone ?? "" },
         { h: "Status", a: (r) => r.status ?? "" },
-        { h: "Branch(es)", a: (r) => (Array.isArray(r.branch_of_service) ? r.branch_of_service.join(", ") : r.branch_of_service ?? "") },
+        {
+          h: "Branch(es)",
+          a: (r) =>
+            Array.isArray(r.branch_of_service)
+              ? r.branch_of_service.join(", ")
+              : r.branch_of_service ?? "",
+        },
         { h: "Era", a: (r) => r.era ?? "" },
-        { h: "Eras (list)", a: (r) => (Array.isArray(r.era_list) ? r.era_list.join(", ") : r.era_list ?? "") },
+        {
+          h: "Eras (list)",
+          a: (r) => (Array.isArray(r.era_list) ? r.era_list.join(", ") : r.era_list ?? ""),
+        },
         { h: "City", a: (r) => r.city ?? "" },
         { h: "State", a: (r) => r.state ?? "" },
         { h: "ZIP", a: (r) => r.postal_code ?? "" },
+        { h: "RHP Client?", a: (r) => (r.rhp_client_status ? "Yes" : "No") },
+        { h: "Peer Contact Opt-In?", a: (r) => (r.peer_contact_opt_in ? "Yes" : "No") },
         { h: "Ticket", a: (r) => r.ticket_code ?? "" },
       ];
       const esc = (v) => {
         const s = String(v ?? "");
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       };
-      const csv = cols.map(c => esc(c.h)).join(",") + "\n" +
-        rows.map(r => cols.map(c => esc(c.a(r))).join(",")).join("\n");
+      const csv =
+        cols.map((c) => esc(c.h)).join(",") +
+        "\n" +
+        rows.map((r) => cols.map((c) => esc(c.a(r))).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `rsvps_export_${stamp}.csv`;
-      a.click(); URL.revokeObjectURL(a.href);
+      a.click();
+      URL.revokeObjectURL(a.href);
     } catch (e) {
       alert(e.message || "Export failed");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // NEW: chip handlers -> exact filters
+  // Chip handlers
   const onBranchChip = (label) => {
     setBranchFilter((prev) => (prev === label ? "" : label));
-    setSearch(""); // keep search box for fuzzy; chip uses exact
+    setSearch("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const onEraChip = (label) => {
@@ -224,24 +294,32 @@ export default function TurkeyDashboard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // KPI ring handlers
+  const toggleClientYes = () => { setClientFilter((p) => (p === "yes" ? "" : "yes")); setSearch(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const toggleContactYes = () => { setContactFilter((p) => (p === "yes" ? "" : "yes")); setSearch(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const clearClient = () => setClientFilter("");
+  const clearContact = () => setContactFilter("");
+
   const clearAllFilters = () => {
     setBranchFilter("");
     setEraFilter("");
+    setClientFilter("");
+    setContactFilter("");
     setSearch("");
     setEventFilter("");
     setFromDate("");
     setToDate("");
   };
 
-  const sortedSlots = Object.keys(slotCounts).sort((a,b) => {
-    const ia = SLOT_ORDER.indexOf(a); const ib = SLOT_ORDER.indexOf(b);
+  const sortedSlots = Object.keys(slotCounts).sort((a, b) => {
+    const ia = SLOT_ORDER.indexOf(a);
+    const ib = SLOT_ORDER.indexOf(b);
     if (ia >= 0 && ib >= 0) return ia - ib;
     if (ia >= 0) return -1;
     if (ib >= 0) return 1;
     return a.localeCompare(b);
   });
 
-  // Small helpers for UI
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const PagerSummary = () => (
     <div style={pagerRow}>
@@ -249,11 +327,32 @@ export default function TurkeyDashboard() {
         <strong>Page {page + 1}</strong> of <strong>{pages}</strong> • <strong>{total}</strong> total
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <Button variant="ghost" disabled={page===0||loading} onClick={()=>setPage(p=>Math.max(0,p-1))}>Prev</Button>
-        <Button variant="ghost" disabled={loading || (page+1)>=pages} onClick={()=>setPage(p=>p+1)}>Next</Button>
+        <Button
+          variant="ghost"
+          disabled={page === 0 || loading}
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+        >
+          Prev
+        </Button>
+        <Button
+          variant="ghost"
+          disabled={loading || page + 1 >= pages}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </Button>
       </div>
     </div>
   );
+
+  // KPI ring data
+  const clientYes = clientCounts.yes;
+  const clientTotal = clientCounts.total || 0;
+  const clientPct = clientTotal ? Math.round((clientYes / clientTotal) * 100) : 0;
+
+  const contactYes = contactCounts.yes;
+  const contactTotal = contactCounts.total || 0;
+  const contactPct = contactTotal ? Math.round((contactYes / contactTotal) * 100) : 0;
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
@@ -262,15 +361,41 @@ export default function TurkeyDashboard() {
         <div style={{ color: "#6b7280" }}>Search runs server-side across all pages.</div>
       </header>
 
-      {/* --- Insights FIRST (collapsed by default) --- */}
+      {/* Insights FIRST (collapsed by default) */}
       <section style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
+        >
           <div style={{ fontWeight: 800, color: THEME.black }}>Insights</div>
-          <Button variant="ghost" onClick={()=>setShowInsights(s=>!s)}>{showInsights ? "Hide" : "Show"}</Button>
+          <Button variant="ghost" onClick={() => setShowInsights((s) => !s)}>
+            {showInsights ? "Hide" : "Show"}
+          </Button>
         </div>
 
         {showInsights && (
           <div style={{ display: "grid", gap: 16 }}>
+            {/* Two compact ring KPIs */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
+              <RingCard
+                title="RHP Clients"
+                numerator={clientYes}
+                denominator={clientTotal}
+                percent={clientPct}
+                onSliceClick={toggleClientYes}
+                onCenterClick={clearClient}
+                active={clientFilter === "yes"}
+              />
+              <RingCard
+                title="Peer Contact Opt-In"
+                numerator={contactYes}
+                denominator={contactTotal}
+                percent={contactPct}
+                onSliceClick={toggleContactYes}
+                onCenterClick={clearContact}
+                active={contactFilter === "yes"}
+              />
+            </div>
+
             <BreakdownCard title="Branch of Service">
               <Chips map={branchCounts} onChipClick={onBranchChip} />
             </BreakdownCard>
@@ -280,14 +405,27 @@ export default function TurkeyDashboard() {
             </BreakdownCard>
 
             <BreakdownCard title="Slot Utilization">
-              {sortedSlots.length === 0 ? <div style={{ color: "#6b7280" }}>No data</div> : (
+              {sortedSlots.length === 0 ? (
+                <div style={{ color: "#6b7280" }}>No data</div>
+              ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                  {sortedSlots.map((slot)=> {
+                  {sortedSlots.map((slot) => {
                     const count = slotCounts[slot] || 0;
                     const cap = slotCapacities[slot] ?? FALLBACK_SLOT_CAPACITY;
-                    const pct = Math.min(100, Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100));
+                    const pct = Math.min(
+                      100,
+                      Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100)
+                    );
                     return (
-                      <div key={slot} style={{ display: "grid", gridTemplateColumns: "220px 1fr 90px", gap: 10, alignItems: "center" }}>
+                      <div
+                        key={slot}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "220px 1fr 90px",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
                         <div style={{ whiteSpace: "nowrap" }}>{slot}</div>
                         <Progress value={pct} />
                         <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
@@ -303,29 +441,52 @@ export default function TurkeyDashboard() {
         )}
       </section>
 
-      {/* --- Filters --- */}
+      {/* Filters */}
       <section style={card}>
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1.1fr 0.8fr 0.8fr 1.6fr auto",
-          gap: 12, alignItems: "end",
-        }}>
-          <LabeledInput label="Event (contains)" placeholder="e.g., Turkey Drop" value={eventFilter} onChange={(e)=>setEventFilter(e.target.value)}/>
-          <LabeledInput label="From date" type="date" value={fromDate} onChange={(e)=>setFromDate(e.target.value)}/>
-          <LabeledInput label="To date" type="date" value={toDate} onChange={(e)=>setToDate(e.target.value)}/>
-          <LabeledInput label="Search (fuzzy)" placeholder="Army, Vietnam, name, phone…" value={search} onChange={(e)=>setSearch(e.target.value)}/>
-          <Button onClick={exportAll} variant="secondary">Export CSV</Button>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.1fr 0.8fr 0.8fr 1.6fr auto",
+            gap: 12,
+            alignItems: "end",
+          }}
+        >
+          <LabeledInput
+            label="Event (contains)"
+            placeholder="e.g., Turkey Drop"
+            value={eventFilter}
+            onChange={(e) => setEventFilter(e.target.value)}
+          />
+          <LabeledInput
+            label="From date"
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+          <LabeledInput
+            label="To date"
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
+          <LabeledInput
+            label="Search (fuzzy)"
+            placeholder="Army, Vietnam, name, phone…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button onClick={exportAll} variant="secondary">
+            Export CSV
+          </Button>
         </div>
 
         {/* Active filter pills */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-          {branchFilter && (
-            <Pill onClear={()=>setBranchFilter("")} label={`Branch: ${branchFilter}`} />
-          )}
-          {eraFilter && (
-            <Pill onClear={()=>setEraFilter("")} label={`Era: ${eraFilter}`} />
-          )}
-          {(branchFilter || eraFilter || eventFilter || fromDate || toDate || search) && (
+          {branchFilter && <Pill onClear={() => setBranchFilter("")} label={`Branch: ${branchFilter}`} />}
+          {eraFilter && <Pill onClear={() => setEraFilter("")} label={`Era: ${eraFilter}`} />}
+          {clientFilter === "yes" && <Pill onClear={clearClient} label="RHP Clients: Yes" />}
+          {contactFilter === "yes" && <Pill onClear={clearContact} label="Peer Contact: Yes" />}
+          {(branchFilter || eraFilter || clientFilter || contactFilter || eventFilter || fromDate || toDate || search) && (
             <Pill kind="reset" onClear={clearAllFilters} label="Clear all filters" />
           )}
         </div>
@@ -333,51 +494,103 @@ export default function TurkeyDashboard() {
         {err ? <div style={{ color: "#b91c1c", marginTop: 8 }}>{err}</div> : null}
       </section>
 
-      {/* --- Table --- */}
+      {/* Table */}
       <section style={card}>
-        {/* NEW: Top pager */}
+        {/* Top pager */}
         <PagerSummary />
 
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ position: "sticky", top: 0, background: THEME.white, zIndex: 1 }}>
               <tr>
-                {["Created","Event","Slot","Name","Email","Phone","Status","Branch(es)","Era / Eras","City/State"].map((h)=>(
-                  <th key={h} style={th}>{h}</th>
+                {[
+                  "Created",
+                  "Event",
+                  "Slot",
+                  "Name",
+                  "Email",
+                  "Phone",
+                  "Status",
+                  "Branch(es)",
+                  "Era / Eras",
+                  "City/State",
+                ].map((h) => (
+                  <th key={h} style={th}>
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} style={{ padding: 16 }}>Loading…</td></tr>
+                <tr>
+                  <td colSpan={10} style={{ padding: 16 }}>
+                    Loading…
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={10} style={{ padding: 16 }}>No results</td></tr>
+                <tr>
+                  <td colSpan={10} style={{ padding: 16 }}>
+                    No results
+                  </td>
+                </tr>
               ) : (
-                rows.map((r)=>(
-                  <tr key={r.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={td}>{fmtDate(r.created_at)}</td>
-                    <td style={td}>{r.event_name}</td>
-                    <td style={td}>{r.slot_label}</td>
-                    <td style={td}><strong>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</strong></td>
-                    <td style={td}>{r.email}</td>
-                    <td style={td}>{r.phone}</td>
-                    <td style={td}>{r.status}</td>
-                    <td style={td}>{Array.isArray(r.branch_of_service)? r.branch_of_service.join(", ") : (r.branch_of_service ?? "")}</td>
-                    <td style={td}>
-                      <div>{r.era}</div>
-                      <div style={{ color: "#6b7280", fontSize: 12 }}>
-                        {Array.isArray(r.era_list) ? r.era_list.join(", ") : (r.era_list ?? "")}
-                      </div>
-                    </td>
-                    <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
-                  </tr>
-                ))
+                rows.map((r) => {
+                  const highlighted = !!r.peer_contact_opt_in;
+                  return (
+                    <tr
+                      key={r.id}
+                      style={{
+                        borderBottom: "1px solid #f3f4f6",
+                        background: highlighted ? THEME.rowHighlight : "#fff",
+                      }}
+                    >
+                      <td style={td}>{fmtDate(r.created_at)}</td>
+                      <td style={td}>{r.event_name}</td>
+                      <td style={td}>{r.slot_label}</td>
+                      <td style={td}>
+                        <strong>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</strong>
+                      </td>
+                      <td style={td}>{r.email}</td>
+                      <td style={td}>{r.phone}</td>
+                      <td style={td}>{r.status}</td>
+                      <td style={td}>
+                        {Array.isArray(r.branch_of_service)
+                          ? r.branch_of_service.join(", ")
+                          : r.branch_of_service ?? ""}
+                      </td>
+                      <td style={td}>
+                        <div>{r.era}</div>
+                        <div style={{ color: "#6b7280", fontSize: 12 }}>
+                          {Array.isArray(r.era_list) ? r.era_list.join(", ") : r.era_list ?? ""}
+                        </div>
+                      </td>
+                      <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Bottom pager (existing) */}
+        {/* Legend / note */}
+        <div style={{ marginTop: 8, color: "#374151", fontSize: 12 }}>
+          <span
+            style={{
+              display: "inline-block",
+              width: 12,
+              height: 12,
+              background: THEME.rowHighlight,
+              border: "1px solid #cfe7db",
+              marginRight: 6,
+              verticalAlign: "middle",
+            }}
+          />
+          Rows highlighted in green requested a peer contact.
+        </div>
+
+        {/* Bottom pager */}
         <PagerSummary />
       </section>
     </div>
@@ -397,7 +610,7 @@ function LabeledInput({ label, ...props }) {
           border: "1px solid #d1d5db",
           outline: "none",
           background: "#fff",
-          ...(props.style || {})
+          ...(props.style || {}),
         }}
       />
     </label>
@@ -420,7 +633,7 @@ function Button({ children, onClick, disabled, variant = "primary" }) {
         fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
         boxShadow: variant !== "ghost" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
-        ...styles
+        ...styles,
       }}
     >
       {children}
@@ -430,13 +643,15 @@ function Button({ children, onClick, disabled, variant = "primary" }) {
 
 function BreakdownCard({ title, children }) {
   return (
-    <div style={{
-      background: "#fff",
-      border: `1px solid ${THEME.white}`,
-      borderRadius: 12,
-      padding: 16,
-      boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
-    }}>
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${THEME.white}`,
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+      }}
+    >
       <div style={{ fontWeight: 800, marginBottom: 8, color: THEME.green }}>{title}</div>
       {children}
     </div>
@@ -452,14 +667,14 @@ function Progress({ value }) {
 }
 
 function Chips({ map, onChipClick }) {
-  const entries = Object.entries(map).sort((a,b)=> b[1]-a[1]);
+  const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) return <div style={{ color: "#6b7280" }}>No data</div>;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      {entries.map(([label,count])=>(
+      {entries.map(([label, count]) => (
         <button
           key={label}
-          onClick={()=>onChipClick(label)}
+          onClick={() => onChipClick(label)}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -470,19 +685,23 @@ function Chips({ map, onChipClick }) {
             background: THEME.lightYellow,
             fontSize: 13,
             cursor: "pointer",
-            fontWeight: 600
+            fontWeight: 600,
           }}
         >
-          <span style={{
-            display:"inline-block",
-            minWidth: 24,
-            textAlign:"center",
-            padding: "2px 6px",
-            borderRadius: 999,
-            background: THEME.yellow,
-            color: THEME.black,
-            fontWeight: 800
-          }}>{count}</span>
+          <span
+            style={{
+              display: "inline-block",
+              minWidth: 24,
+              textAlign: "center",
+              padding: "2px 6px",
+              borderRadius: 999,
+              background: THEME.yellow,
+              color: THEME.black,
+              fontWeight: 800,
+            }}
+          >
+            {count}
+          </span>
           <span>{label}</span>
         </button>
       ))}
@@ -490,30 +709,98 @@ function Chips({ map, onChipClick }) {
   );
 }
 
+/* UPDATED: whole pill is clickable */
 function Pill({ label, onClear, kind = "filter" }) {
   const bg = kind === "reset" ? THEME.yellow : THEME.lightYellow;
   const border = kind === "reset" ? THEME.black : THEME.yellow;
   return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 8,
-      padding: "6px 10px",
-      border: `1px solid ${border}`,
-      borderRadius: 20,
-      background: bg,
-      fontSize: 13,
-      fontWeight: 600,
-      color: THEME.black
-    }}>
-      {label}
-      <button onClick={onClear} style={{
-        border: "none",
-        background: "transparent",
+    <button
+      onClick={onClear}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 10px",
+        border: `1px solid ${border}`,
+        borderRadius: 20,
+        background: bg,
+        fontSize: 13,
+        fontWeight: 600,
+        color: THEME.black,
         cursor: "pointer",
-        fontWeight: 900
-      }}>×</button>
-    </span>
+      }}
+      title={kind === "reset" ? "Clear all filters" : "Clear filter"}
+    >
+      {label} <span style={{ fontWeight: 900 }}>×</span>
+    </button>
+  );
+}
+
+/* UPDATED: entire card toggles; center button clears */
+function RingCard({
+  title,
+  numerator,
+  denominator,
+  percent,
+  onSliceClick,
+  onCenterClick,
+  active = false,
+}) {
+  const size = 120;
+  const stroke = 14;
+  const radius = (size - stroke) / 2;
+  const circ = 2 * Math.PI * radius;
+  const dash = Math.round((circ * Math.min(100, Math.max(0, percent))) / 100);
+
+  return (
+    <button
+      onClick={onSliceClick}
+      aria-label={`Toggle filter: ${title}`}
+      style={{
+        background: "#fff",
+        border: `1px solid ${THEME.white}`,
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        display: "flex",
+        gap: 16,
+        alignItems: "center",
+        cursor: "pointer",
+        outline: active ? `2px solid ${THEME.green}` : "none",
+        textAlign: "left",
+      }}
+    >
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size / 2} cy={size / 2} r={radius} stroke="#e5e7eb" strokeWidth={stroke} fill="none" />
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            stroke={THEME.green} strokeWidth={stroke} fill="none"
+            strokeDasharray={`${dash} ${circ - dash}`}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        </svg>
+
+        {/* Center button: CLEAR (doesn't propagate) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onCenterClick(); }}
+          title="Clear filter"
+          style={{
+            position: "absolute", inset: 0, margin: "auto",
+            width: 70, height: 70, borderRadius: "50%",
+            border: `1px solid ${THEME.yellow}`,
+            background: THEME.lightYellow, color: THEME.black,
+            fontWeight: 800, fontSize: 12, cursor: "pointer",
+          }}
+        >
+          {numerator}/{denominator}
+          <div style={{ fontSize: 10 }}>{percent}%</div>
+        </button>
+      </div>
+
+      <div style={{ fontWeight: 800, color: active ? THEME.green : THEME.black }}>{title}</div>
+    </button>
   );
 }
 
@@ -524,7 +811,7 @@ const card = {
   borderRadius: 12,
   padding: 16,
   boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-  marginBottom: 16
+  marginBottom: 16,
 };
 const th = {
   textAlign: "left",
@@ -534,7 +821,7 @@ const th = {
   fontSize: 13,
   whiteSpace: "nowrap",
   color: THEME.black,
-  background: "#fff"
+  background: "#fff",
 };
 const td = { padding: "12px 10px", verticalAlign: "top", fontSize: 14 };
 const pagerRow = {
@@ -545,5 +832,5 @@ const pagerRow = {
   padding: 12,
   borderTop: `1px solid ${THEME.white}`,
   borderBottom: `1px solid ${THEME.white}`,
-  background: "#fff"
+  background: "#fff",
 };

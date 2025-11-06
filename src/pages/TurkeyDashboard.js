@@ -1,19 +1,20 @@
 // src/pages/TurkeyDashboard.js
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
 
 const PAGE_SIZE = 25;
 const VIEW = "v_rsvps_admin";
+const BASE_TABLE = "rsvps";
 const FALLBACK_SLOT_CAPACITY = 80;
 
-// Brand palette
 const THEME = {
   green: "#006633",
   yellow: "#F2AE00",
   lightYellow: "#FEF3B5",
-  white: "#EFEFEF", // brand "white" (light gray background)
+  white: "#EFEFEF",
   black: "#000000",
-  rowHighlight: "#E7F4EC", // very light green for opt-in highlight
+  rowHighlight: "#E7F4EC",
 };
 
 const SLOT_ORDER = [
@@ -36,25 +37,53 @@ function fmtDate(ts) {
   });
 }
 
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>{label}</span>
+      {React.cloneElement(children, {
+        style: {
+          padding: "10px 12px",
+          borderRadius: 8,
+          border: "1px solid #d1d5db",
+          outline: "none",
+          background: "#fff",
+          ...(children.props.style || {}),
+        },
+      })}
+    </label>
+  );
+}
+
+function Toggle({ label, value, onChange }) {
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
+      <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+    </label>
+  );
+}
+
+
 export default function TurkeyDashboard() {
+  // filters
   const [eventFilter, setEventFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
-
-  // Exact filters from chips / KPIs
   const [branchFilter, setBranchFilter] = useState("");
   const [eraFilter, setEraFilter] = useState("");
   const [clientFilter, setClientFilter] = useState(""); // "", "yes", "no"
   const [contactFilter, setContactFilter] = useState(""); // "", "yes", "no"
 
+  // data
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // KPI state
+  // KPIs
   const [branchCounts, setBranchCounts] = useState({});
   const [eraCounts, setEraCounts] = useState({});
   const [slotCounts, setSlotCounts] = useState({});
@@ -63,8 +92,23 @@ export default function TurkeyDashboard() {
   const [contactCounts, setContactCounts] = useState({ yes: 0, no: 0, total: 0 });
   const [showInsights, setShowInsights] = useState(false);
 
-  const fromISO = useMemo(() => (fromDate ? `${fromDate}T00:00:00` : null), [fromDate]);
-  const toISO = useMemo(() => (toDate ? `${toDate}T23:59:59.999` : null), [toDate]);
+  // selection & modals
+  const [selectedId, setSelectedId] = useState(null);
+  const selectedRow = useMemo(
+    () => rows.find((r) => r.id === selectedId) || null,
+    [rows, selectedId]
+  );
+  const [editRow, setEditRow] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+
+  const fromISO = useMemo(
+    () => (fromDate ? `${fromDate}T00:00:00` : null),
+    [fromDate]
+  );
+  const toISO = useMemo(
+    () => (toDate ? `${toDate}T23:59:59.999` : null),
+    [toDate]
+  );
 
   const buildQuery = (selectCols = "*") => {
     let q = supabase
@@ -76,7 +120,7 @@ export default function TurkeyDashboard() {
     if (fromISO) q = q.gte("created_at", fromISO);
     if (toISO) q = q.lte("created_at", toISO);
 
-    // Exact filters
+    // exact filters
     if (branchFilter) q = q.contains("branch_of_service", [branchFilter]);
     if (eraFilter) q = q.contains("era_list", [eraFilter]);
     if (clientFilter === "yes") q = q.eq("rhp_client_status", true);
@@ -84,7 +128,7 @@ export default function TurkeyDashboard() {
     if (contactFilter === "yes") q = q.eq("peer_contact_opt_in", true);
     if (contactFilter === "no") q = q.eq("peer_contact_opt_in", false);
 
-    // Fuzzy search
+    // fuzzy
     if (search?.trim()) {
       const s = search.trim().replace(/[(),]/g, "");
       const digits = s.replace(/\D/g, "");
@@ -113,22 +157,21 @@ export default function TurkeyDashboard() {
     return q;
   };
 
-  // Table fetch
+  // fetch table
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setErr("");
       try {
-        let q = buildQuery("*");
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
-        q = q.range(from, to);
-        const { data, error, count } = await q;
+        const { data, error, count } = await buildQuery("*").range(from, to);
         if (error) throw error;
         if (!cancelled) {
           setRows(data ?? []);
           setTotal(count ?? 0);
+          setSelectedId(null);
         }
       } catch (e) {
         if (!cancelled) setErr(e.message || "Failed to load");
@@ -140,13 +183,32 @@ export default function TurkeyDashboard() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventFilter, fromISO, toISO, search, page, branchFilter, eraFilter, clientFilter, contactFilter]);
+  }, [
+    eventFilter,
+    fromISO,
+    toISO,
+    search,
+    page,
+    branchFilter,
+    eraFilter,
+    clientFilter,
+    contactFilter,
+  ]);
 
   useEffect(() => {
     setPage(0);
-  }, [eventFilter, fromISO, toISO, search, branchFilter, eraFilter, clientFilter, contactFilter]);
+  }, [
+    eventFilter,
+    fromISO,
+    toISO,
+    search,
+    branchFilter,
+    eraFilter,
+    clientFilter,
+    contactFilter,
+  ]);
 
-  // KPI fetch (lightweight)
+  // fetch KPIs (light)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -157,7 +219,7 @@ export default function TurkeyDashboard() {
         if (error) throw error;
         const list = data || [];
 
-        // Branch counts
+        // branch counts
         const bmap = {};
         for (const r of list) {
           const arr = Array.isArray(r.branch_of_service)
@@ -166,25 +228,29 @@ export default function TurkeyDashboard() {
             ? [r.branch_of_service]
             : [];
           for (const b of arr) {
-            const key = (b || "").trim();
-            if (!key) continue;
-            bmap[key] = (bmap[key] || 0) + 1;
+            const k = (b || "").trim();
+            if (!k) continue;
+            bmap[k] = (bmap[k] || 0) + 1;
           }
         }
 
-        // Era counts
+        // era counts
         const emap = {};
         for (const r of list) {
           const items =
-            Array.isArray(r.era_list) && r.era_list.length ? r.era_list : r.era ? [r.era] : [];
+            Array.isArray(r.era_list) && r.era_list.length
+              ? r.era_list
+              : r.era
+              ? [r.era]
+              : [];
           for (const e of items) {
-            const key = (e || "").trim();
-            if (!key) continue;
-            emap[key] = (emap[key] || 0) + 1;
+            const k = (e || "").trim();
+            if (!k) continue;
+            emap[k] = (emap[k] || 0) + 1;
           }
         }
 
-        // Slot counts + capacity
+        // slot counts + capacity
         const smap = {};
         const cap = {};
         for (const r of list) {
@@ -194,7 +260,7 @@ export default function TurkeyDashboard() {
           if (r.slot_capacity != null) cap[label] = r.slot_capacity;
         }
 
-        // Client / Contact counts
+        // client/contact counts
         let cYes = 0,
           cNo = 0,
           pYes = 0,
@@ -202,7 +268,6 @@ export default function TurkeyDashboard() {
         for (const r of list) {
           if (r.rhp_client_status === true) cYes++;
           else if (r.rhp_client_status === false) cNo++;
-
           if (r.peer_contact_opt_in === true) pYes++;
           else if (r.peer_contact_opt_in === false) pNo++;
         }
@@ -216,30 +281,44 @@ export default function TurkeyDashboard() {
           setContactCounts({ yes: pYes, no: pNo, total: list.length });
         }
       } catch {
-        // ignore KPI errors
+        // ignore
       }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventFilter, fromISO, toISO, search, branchFilter, eraFilter, clientFilter, contactFilter]);
+  }, [
+    eventFilter,
+    fromISO,
+    toISO,
+    search,
+    branchFilter,
+    eraFilter,
+    clientFilter,
+    contactFilter,
+  ]);
 
-  // Export everything that matches current filters
+  // export CSV (full fields)
   const exportAll = async () => {
     try {
       setLoading(true);
       const { data, error } = await buildQuery("*");
       if (error) throw error;
-      const rows = data ?? [];
+      const list = data ?? [];
+
       const cols = [
+        { h: "ID", a: (r) => r.id ?? "" },
         { h: "Created", a: (r) => fmtDate(r.created_at) },
         { h: "Event", a: (r) => r.event_name ?? "" },
+        { h: "Event ID", a: (r) => r.event_id ?? "" },
         { h: "Slot", a: (r) => r.slot_label ?? "" },
+        { h: "Slot ID", a: (r) => r.slot_id ?? "" },
         { h: "First", a: (r) => r.first_name ?? "" },
         { h: "Last", a: (r) => r.last_name ?? "" },
         { h: "Email", a: (r) => r.email ?? "" },
         { h: "Phone", a: (r) => r.phone ?? "" },
+        { h: "Phone Digits", a: (r) => r.phone_digits ?? "" },
         { h: "Status", a: (r) => r.status ?? "" },
         {
           h: "Branch(es)",
@@ -248,18 +327,25 @@ export default function TurkeyDashboard() {
               ? r.branch_of_service.join(", ")
               : r.branch_of_service ?? "",
         },
+        { h: "Branch(es) Text", a: (r) => r.branch_of_service_txt ?? "" },
         { h: "Era", a: (r) => r.era ?? "" },
         {
           h: "Eras (list)",
           a: (r) => (Array.isArray(r.era_list) ? r.era_list.join(", ") : r.era_list ?? ""),
         },
+        { h: "Eras (text)", a: (r) => r.era_list_txt ?? "" },
+        { h: "Era Other", a: (r) => r.era_other ?? "" },
+        { h: "Address 1", a: (r) => r.address1 ?? "" },
+        { h: "Address 2", a: (r) => r.address2 ?? "" },
         { h: "City", a: (r) => r.city ?? "" },
         { h: "State", a: (r) => r.state ?? "" },
         { h: "ZIP", a: (r) => r.postal_code ?? "" },
         { h: "RHP Client?", a: (r) => (r.rhp_client_status ? "Yes" : "No") },
         { h: "Peer Contact Opt-In?", a: (r) => (r.peer_contact_opt_in ? "Yes" : "No") },
+        { h: "Texas Roadhouse Raffle?", a: (r) => (r.raffle_opt_in ? "Yes" : "No") },
         { h: "Ticket", a: (r) => r.ticket_code ?? "" },
       ];
+
       const esc = (v) => {
         const s = String(v ?? "");
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -267,7 +353,8 @@ export default function TurkeyDashboard() {
       const csv =
         cols.map((c) => esc(c.h)).join(",") +
         "\n" +
-        rows.map((r) => cols.map((c) => esc(c.a(r))).join(",")).join("\n");
+        list.map((r) => cols.map((c) => esc(c.a(r))).join(",")).join("\n");
+
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
       const a = document.createElement("a");
@@ -282,23 +369,80 @@ export default function TurkeyDashboard() {
     }
   };
 
-  // Chip handlers
-  const onBranchChip = (label) => {
-    setBranchFilter((prev) => (prev === label ? "" : label));
-    setSearch("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-  const onEraChip = (label) => {
-    setEraFilter((prev) => (prev === label ? "" : label));
-    setSearch("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  // selection & actions
+  const onRowClick = (id) => setSelectedId((cur) => (cur === id ? null : id));
+  const openEdit = (row) => setEditRow({ ...row });
+  const closeEdit = () => setEditRow(null);
+  const openDelete = (row) => setDeleteRow(row);
+  const closeDelete = () => setDeleteRow(null);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteRow) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase.from(BASE_TABLE).delete().eq("id", deleteRow.id);
+      if (error) throw error;
+      setRows((prev) => prev.filter((r) => r.id !== deleteRow.id));
+      setTotal((t) => Math.max(0, t - 1));
+      if (selectedId === deleteRow.id) setSelectedId(null);
+      closeDelete();
+    } catch (e) {
+      alert(`Delete failed: ${e.message || e}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // KPI ring handlers
-  const toggleClientYes = () => { setClientFilter((p) => (p === "yes" ? "" : "yes")); setSearch(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const toggleContactYes = () => { setContactFilter((p) => (p === "yes" ? "" : "yes")); setSearch(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const clearClient = () => setClientFilter("");
-  const clearContact = () => setContactFilter("");
+  const handleEditSave = async () => {
+    if (!editRow) return;
+    const {
+      id,
+      first_name,
+      last_name,
+      email,
+      phone,
+      address1,
+      address2,
+      city,
+      state,
+      postal_code,
+      raffle_opt_in,
+      rhp_client_status,
+      peer_contact_opt_in,
+    } = editRow;
+
+    const patch = {
+      first_name: first_name ?? null,
+      last_name: last_name ?? null,
+      email: email ?? null,
+      phone: phone ?? null,
+      address1: address1 ?? null,
+      address2: address2 ?? null,
+      city: city ?? null,
+      state: state ?? null,
+      postal_code: postal_code ?? null,
+      raffle_opt_in: !!raffle_opt_in,
+      rhp_client_status: !!rhp_client_status,
+      peer_contact_opt_in: !!peer_contact_opt_in,
+    };
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from(BASE_TABLE)
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+      closeEdit();
+    } catch (e) {
+      alert(`Update failed: ${e.message || e}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const clearAllFilters = () => {
     setBranchFilter("");
@@ -321,127 +465,23 @@ export default function TurkeyDashboard() {
   });
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const PagerSummary = () => (
-    <div style={pagerRow}>
-      <div style={{ color: "#374151" }}>
-        <strong>Page {page + 1}</strong> of <strong>{pages}</strong> • <strong>{total}</strong> total
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <Button
-          variant="ghost"
-          disabled={page === 0 || loading}
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-        >
-          Prev
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={loading || page + 1 >= pages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
-  );
-
-  // KPI ring data
-  const clientYes = clientCounts.yes;
-  const clientTotal = clientCounts.total || 0;
-  const clientPct = clientTotal ? Math.round((clientYes / clientTotal) * 100) : 0;
-
-  const contactYes = contactCounts.yes;
-  const contactTotal = contactCounts.total || 0;
-  const contactPct = contactTotal ? Math.round((contactYes / contactTotal) * 100) : 0;
+  const clientPct = clientCounts.total
+    ? Math.round((clientCounts.yes / clientCounts.total) * 100)
+    : 0;
+  const contactPct = contactCounts.total
+    ? Math.round((contactCounts.yes / contactCounts.total) * 100)
+    : 0;
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <header style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: THEME.green }}>RSVP Admin</h1>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: THEME.green }}>
+          RSVP Admin
+        </h1>
         <div style={{ color: "#6b7280" }}>Search runs server-side across all pages.</div>
       </header>
 
-      {/* Insights FIRST (collapsed by default) */}
-      <section style={card}>
-        <div
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
-        >
-          <div style={{ fontWeight: 800, color: THEME.black }}>Insights</div>
-          <Button variant="ghost" onClick={() => setShowInsights((s) => !s)}>
-            {showInsights ? "Hide" : "Show"}
-          </Button>
-        </div>
-
-        {showInsights && (
-          <div style={{ display: "grid", gap: 16 }}>
-            {/* Two compact ring KPIs */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
-              <RingCard
-                title="RHP Clients"
-                numerator={clientYes}
-                denominator={clientTotal}
-                percent={clientPct}
-                onSliceClick={toggleClientYes}
-                onCenterClick={clearClient}
-                active={clientFilter === "yes"}
-              />
-              <RingCard
-                title="Peer Contact Opt-In"
-                numerator={contactYes}
-                denominator={contactTotal}
-                percent={contactPct}
-                onSliceClick={toggleContactYes}
-                onCenterClick={clearContact}
-                active={contactFilter === "yes"}
-              />
-            </div>
-
-            <BreakdownCard title="Branch of Service">
-              <Chips map={branchCounts} onChipClick={onBranchChip} />
-            </BreakdownCard>
-
-            <BreakdownCard title="Era of Service">
-              <Chips map={eraCounts} onChipClick={onEraChip} />
-            </BreakdownCard>
-
-            <BreakdownCard title="Slot Utilization">
-              {sortedSlots.length === 0 ? (
-                <div style={{ color: "#6b7280" }}>No data</div>
-              ) : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  {sortedSlots.map((slot) => {
-                    const count = slotCounts[slot] || 0;
-                    const cap = slotCapacities[slot] ?? FALLBACK_SLOT_CAPACITY;
-                    const pct = Math.min(
-                      100,
-                      Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100)
-                    );
-                    return (
-                      <div
-                        key={slot}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "220px 1fr 90px",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
-                        <div style={{ whiteSpace: "nowrap" }}>{slot}</div>
-                        <Progress value={pct} />
-                        <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          <strong>{count}</strong> / {cap || FALLBACK_SLOT_CAPACITY} ({pct}%)
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </BreakdownCard>
-          </div>
-        )}
-      </section>
-
-      {/* Filters */}
+      {/* Filters / Export / Insights toggle */}
       <section style={card}>
         <div
           style={{
@@ -480,24 +520,176 @@ export default function TurkeyDashboard() {
           </Button>
         </div>
 
-        {/* Active filter pills */}
+        {/* filter pills */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-          {branchFilter && <Pill onClear={() => setBranchFilter("")} label={`Branch: ${branchFilter}`} />}
+          {branchFilter && (
+            <Pill onClear={() => setBranchFilter("")} label={`Branch: ${branchFilter}`} />
+          )}
           {eraFilter && <Pill onClear={() => setEraFilter("")} label={`Era: ${eraFilter}`} />}
-          {clientFilter === "yes" && <Pill onClear={clearClient} label="RHP Clients: Yes" />}
-          {contactFilter === "yes" && <Pill onClear={clearContact} label="Peer Contact: Yes" />}
-          {(branchFilter || eraFilter || clientFilter || contactFilter || eventFilter || fromDate || toDate || search) && (
+          {clientFilter === "yes" && (
+            <Pill onClear={() => setClientFilter("")} label="RHP Clients: Yes" />
+          )}
+          {contactFilter === "yes" && (
+            <Pill onClear={() => setContactFilter("")} label="Peer Contact: Yes" />
+          )}
+          {(branchFilter ||
+            eraFilter ||
+            clientFilter ||
+            contactFilter ||
+            eventFilter ||
+            fromDate ||
+            toDate ||
+            search) && (
             <Pill kind="reset" onClear={clearAllFilters} label="Clear all filters" />
           )}
         </div>
 
-        {err ? <div style={{ color: "#b91c1c", marginTop: 8 }}>{err}</div> : null}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 16,
+          }}
+        >
+          <div style={{ fontWeight: 800, color: THEME.black }}>Insights</div>
+          <Button variant="ghost" onClick={() => setShowInsights((s) => !s)}>
+            {showInsights ? "Hide" : "Show"}
+          </Button>
+        </div>
+
+        {showInsights && (
+          <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+                gap: 16,
+              }}
+            >
+              <RingCard
+                title="RHP Clients"
+                numerator={clientCounts.yes}
+                denominator={clientCounts.total}
+                percent={clientPct}
+                onSliceClick={() => {
+                  setClientFilter((p) => (p === "yes" ? "" : "yes"));
+                  setSearch("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                onCenterClick={() => setClientFilter("")}
+                active={clientFilter === "yes"}
+              />
+              <RingCard
+                title="Peer Contact Opt-In"
+                numerator={contactCounts.yes}
+                denominator={contactCounts.total}
+                percent={contactPct}
+                onSliceClick={() => {
+                  setContactFilter((p) => (p === "yes" ? "" : "yes"));
+                  setSearch("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                onCenterClick={() => setContactFilter("")}
+                active={contactFilter === "yes"}
+              />
+            </div>
+
+            <BreakdownCard title="Branch of Service">
+              <Chips
+                map={branchCounts}
+                onChipClick={(label) => {
+                  setBranchFilter((prev) => (prev === label ? "" : label));
+                  setSearch("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              />
+            </BreakdownCard>
+
+            <BreakdownCard title="Era of Service">
+              <Chips
+                map={eraCounts}
+                onChipClick={(label) => {
+                  setEraFilter((prev) => (prev === label ? "" : label));
+                  setSearch("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              />
+            </BreakdownCard>
+
+            <BreakdownCard title="Slot Utilization">
+              {sortedSlots.length === 0 ? (
+                <div style={{ color: "#6b7280" }}>No data</div>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {sortedSlots.map((slot) => {
+                    const count = slotCounts[slot] || 0;
+                    const cap = slotCapacities[slot] ?? FALLBACK_SLOT_CAPACITY;
+                    const pct = Math.min(
+                      100,
+                      Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100)
+                    );
+                    return (
+                      <div
+                        key={slot}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "220px 1fr 90px",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ whiteSpace: "nowrap" }}>{slot}</div>
+                        <Progress value={pct} />
+                        <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <strong>{count}</strong> / {cap || FALLBACK_SLOT_CAPACITY} ({pct}
+                          %)
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </BreakdownCard>
+          </div>
+        )}
       </section>
 
-      {/* Table */}
+      {/* Toolbar + pager + table */}
       <section style={card}>
-        {/* Top pager */}
-        <PagerSummary />
+        <div style={toolbarRow}>
+          <div style={{ color: "#374151" }}>
+            <strong>Page {page + 1}</strong> of{" "}
+            <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong> •{" "}
+            <strong>{total}</strong> total
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button
+              variant="ghost"
+              disabled={page === 0 || loading}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              Prev
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={loading || page + 1 >= Math.max(1, Math.ceil(total / PAGE_SIZE))}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+            {selectedRow && (
+              <>
+                <Button variant="ghost" onClick={() => openEdit(selectedRow)}>
+                  Edit
+                </Button>
+                <Button variant="danger" onClick={() => openDelete(selectedRow)}>
+                  Delete
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -536,13 +728,17 @@ export default function TurkeyDashboard() {
                 </tr>
               ) : (
                 rows.map((r) => {
-                  const highlighted = !!r.peer_contact_opt_in;
+                  const isSel = selectedId === r.id;
+                  const green = !!r.peer_contact_opt_in;
                   return (
                     <tr
                       key={r.id}
+                      onClick={() => onRowClick(r.id)}
                       style={{
                         borderBottom: "1px solid #f3f4f6",
-                        background: highlighted ? THEME.rowHighlight : "#fff",
+                        background: isSel ? "#DCF7E6" : green ? THEME.rowHighlight : "#fff",
+                        cursor: "pointer",
+                        outline: isSel ? `2px solid ${THEME.green}` : "none",
                       }}
                     >
                       <td style={td}>{fmtDate(r.created_at)}</td>
@@ -562,7 +758,9 @@ export default function TurkeyDashboard() {
                       <td style={td}>
                         <div>{r.era}</div>
                         <div style={{ color: "#6b7280", fontSize: 12 }}>
-                          {Array.isArray(r.era_list) ? r.era_list.join(", ") : r.era_list ?? ""}
+                          {Array.isArray(r.era_list)
+                            ? r.era_list.join(", ")
+                            : r.era_list ?? ""}
                         </div>
                       </td>
                       <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
@@ -574,7 +772,6 @@ export default function TurkeyDashboard() {
           </table>
         </div>
 
-        {/* Legend / note */}
         <div style={{ marginTop: 8, color: "#374151", fontSize: 12 }}>
           <span
             style={{
@@ -589,15 +786,136 @@ export default function TurkeyDashboard() {
           />
           Rows highlighted in green requested a peer contact.
         </div>
-
-        {/* Bottom pager */}
-        <PagerSummary />
       </section>
+      
+
+      {/* Edit Modal */}
+      {editRow && (
+        <Modal title="Edit RSVP" onClose={() => setEditRow(null)}>
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={twoCol}>
+              <Field label="First name">
+                <input
+                  value={editRow.first_name || ""}
+                  onChange={(e) => setEditRow((s) => ({ ...s, first_name: e.target.value }))}
+                />
+              </Field>
+              <Field label="Last name">
+                <input
+                  value={editRow.last_name || ""}
+                  onChange={(e) => setEditRow((s) => ({ ...s, last_name: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <div style={twoCol}>
+              <Field label="Email">
+                <input
+                  value={editRow.email || ""}
+                  onChange={(e) => setEditRow((s) => ({ ...s, email: e.target.value }))}
+                />
+              </Field>
+              <Field label="Phone">
+                <input
+                  value={editRow.phone || ""}
+                  onChange={(e) => setEditRow((s) => ({ ...s, phone: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <Field label="Address 1">
+              <input
+                value={editRow.address1 || ""}
+                onChange={(e) => setEditRow((s) => ({ ...s, address1: e.target.value }))}
+              />
+            </Field>
+            <Field label="Address 2">
+              <input
+                value={editRow.address2 || ""}
+                onChange={(e) => setEditRow((s) => ({ ...s, address2: e.target.value }))}
+              />
+            </Field>
+            <div style={threeCol}>
+              <Field label="City">
+                <input
+                  value={editRow.city || ""}
+                  onChange={(e) => setEditRow((s) => ({ ...s, city: e.target.value }))}
+                />
+              </Field>
+              <Field label="State">
+                <input
+                  value={editRow.state || ""}
+                  onChange={(e) => setEditRow((s) => ({ ...s, state: e.target.value }))}
+                />
+              </Field>
+              <Field label="ZIP">
+                <input
+                  value={editRow.postal_code || ""}
+                  onChange={(e) =>
+                    setEditRow((s) => ({ ...s, postal_code: e.target.value }))
+                  }
+                />
+              </Field>
+            </div>
+
+            <div style={threeCol}>
+              <Toggle
+                label="RHP Client?"
+                value={!!editRow.rhp_client_status}
+                onChange={(v) =>
+                  setEditRow((s) => ({ ...s, rhp_client_status: v }))
+                }
+              />
+              <Toggle
+                label="Peer Contact Opt-In?"
+                value={!!editRow.peer_contact_opt_in}
+                onChange={(v) =>
+                  setEditRow((s) => ({ ...s, peer_contact_opt_in: v }))
+                }
+              />
+              <Toggle
+                label="Texas Roadhouse Raffle?"
+                value={!!editRow.raffle_opt_in}
+                onChange={(v) =>
+                  setEditRow((s) => ({ ...s, raffle_opt_in: v }))
+                }
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+              <Button variant="ghost" onClick={() => setEditRow(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditSave}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Modal */}
+      {deleteRow && (
+        <Modal title="Delete RSVP" onClose={() => setDeleteRow(null)}>
+          <div style={{ display: "grid", gap: 12 }}>
+            <div>Are you sure you want to delete:</div>
+            <div style={{ fontWeight: 800 }}>
+              {deleteRow.first_name} {deleteRow.last_name}
+            </div>
+            <div style={{ color: "#6b7280" }}>{deleteRow.email}</div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="ghost" onClick={() => setDeleteRow(null)}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleDeleteConfirm}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-/* UI bits */
+/* ---------- UI bits ---------- */
+
 function LabeledInput({ label, ...props }) {
   return (
     <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#374151" }}>
@@ -622,6 +940,7 @@ function Button({ children, onClick, disabled, variant = "primary" }) {
     primary: { background: THEME.green, color: "#fff", border: `1px solid ${THEME.black}` },
     secondary: { background: THEME.lightYellow, color: THEME.black, border: `1px solid ${THEME.yellow}` },
     ghost: { background: "#fff", color: THEME.black, border: "1px solid #e5e7eb" },
+    danger: { background: "#b91c1c", color: "#fff", border: "1px solid #b91c1c" },
   }[variant];
   return (
     <button
@@ -632,7 +951,6 @@ function Button({ children, onClick, disabled, variant = "primary" }) {
         borderRadius: 8,
         fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: variant !== "ghost" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
         ...styles,
       }}
     >
@@ -709,7 +1027,6 @@ function Chips({ map, onChipClick }) {
   );
 }
 
-/* UPDATED: whole pill is clickable */
 function Pill({ label, onClear, kind = "filter" }) {
   const bg = kind === "reset" ? THEME.yellow : THEME.lightYellow;
   const border = kind === "reset" ? THEME.black : THEME.yellow;
@@ -736,7 +1053,6 @@ function Pill({ label, onClear, kind = "filter" }) {
   );
 }
 
-/* UPDATED: entire card toggles; center button clears */
 function RingCard({
   title,
   numerator,
@@ -774,24 +1090,38 @@ function RingCard({
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <circle cx={size / 2} cy={size / 2} r={radius} stroke="#e5e7eb" strokeWidth={stroke} fill="none" />
           <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            stroke={THEME.green} strokeWidth={stroke} fill="none"
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={THEME.green}
+            strokeWidth={stroke}
+            fill="none"
             strokeDasharray={`${dash} ${circ - dash}`}
             strokeLinecap="round"
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
         </svg>
 
-        {/* Center button: CLEAR (doesn't propagate) */}
+        {/* center button clears */}
         <button
-          onClick={(e) => { e.stopPropagation(); onCenterClick(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCenterClick();
+          }}
           title="Clear filter"
           style={{
-            position: "absolute", inset: 0, margin: "auto",
-            width: 70, height: 70, borderRadius: "50%",
+            position: "absolute",
+            inset: 0,
+            margin: "auto",
+            width: 70,
+            height: 70,
+            borderRadius: "50%",
             border: `1px solid ${THEME.yellow}`,
-            background: THEME.lightYellow, color: THEME.black,
-            fontWeight: 800, fontSize: 12, cursor: "pointer",
+            background: THEME.lightYellow,
+            color: THEME.black,
+            fontWeight: 800,
+            fontSize: 12,
+            cursor: "pointer",
           }}
         >
           {numerator}/{denominator}
@@ -799,8 +1129,34 @@ function RingCard({
         </button>
       </div>
 
-      <div style={{ fontWeight: 800, color: active ? THEME.green : THEME.black }}>{title}</div>
+      <div style={{ fontWeight: 800, color: active ? THEME.green : THEME.black }}>
+        {title}
+      </div>
     </button>
+  );
+}
+
+function Modal({ title, children, onClose }) {
+  return createPortal(
+    <div style={modalBackdrop} role="dialog" aria-modal="true">
+      <div style={modalCard}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
+          <button onClick={onClose} aria-label="Close" style={modalClose}>
+            ×
+          </button>
+        </div>
+        <div>{children}</div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -824,7 +1180,7 @@ const th = {
   background: "#fff",
 };
 const td = { padding: "12px 10px", verticalAlign: "top", fontSize: 14 };
-const pagerRow = {
+const toolbarRow = {
   display: "flex",
   gap: 8,
   alignItems: "center",
@@ -833,4 +1189,36 @@ const pagerRow = {
   borderTop: `1px solid ${THEME.white}`,
   borderBottom: `1px solid ${THEME.white}`,
   background: "#fff",
+};
+const twoCol = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
+const threeCol = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 };
+
+const modalBackdrop = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.4)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 16,
+  zIndex: 1000,
+};
+const modalCard = {
+  width: "min(780px, 100%)",
+  background: "#fff",
+  borderRadius: 12,
+  padding: 16,
+  boxShadow: "0 10px 24px rgba(0,0,0,0.2)",
+  maxHeight: "90vh",
+  overflow: "auto",
+};
+const modalClose = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  width: 36,
+  height: 36,
+  fontSize: 18,
+  lineHeight: "34px",
+  cursor: "pointer",
 };

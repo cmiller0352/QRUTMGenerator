@@ -14,18 +14,18 @@ const BRANCHES = [
   "Space Force"
 ];
 const ERAS = [
-  'WWII',
-  'Korean War Era',
-  'Korean War',
-  'Vietnam War Era',
-  'Vietnam',
-  'Cold War',
-  'Persian Gulf War',
-  'Persian Gulf War/Desert Storm Era', // ← no spaces around the slash
-  'Pre-9/11',
-  'Post-9/11',
-  'OIF/OEF/OND',
-  'Other'
+  "WWII",
+  "Korean War Era",
+  "Korean War",
+  "Vietnam War Era",
+  "Vietnam",
+  "Cold War",
+  "Persian Gulf War",
+  "Persian Gulf War/Desert Storm Era",
+  "Pre-9/11",
+  "Post-9/11",
+  "OIF/OEF/OND",
+  "Other",
 ];
 
 const US_STATES = [
@@ -37,7 +37,6 @@ const US_STATES = [
   "Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"
 ];
 
-/** Reusable chip group that behaves like your time-slot buttons */
 function MultiChipGroup({ label, options, values, setValues, idPrefix }) {
   const toggle = (val) => {
     setValues((prev) =>
@@ -76,21 +75,21 @@ export default function SlotPicker({ eventId }) {
 
   // Fields
   const [firstName, setFirstName] = useState("");
-  const [lastName,  setLastName]  = useState("");
-  const [email,     setEmail]     = useState("");
-  const [emailHint,     setEmailHint]     = useState("");
-  const [phone,     setPhone]     = useState("");   // formatted display
-  const [digits,    setDigits]    = useState("");   // raw digits
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailHint, setEmailHint] = useState("");
+  const [phone, setPhone] = useState(""); // formatted display
+  const [digits, setDigits] = useState(""); // raw digits
 
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
-  const [city,     setCity]     = useState("");
-  const [state,    setState]    = useState("Illinois");
-  const [zip,      setZip]      = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("Illinois");
+  const [zip, setZip] = useState("");
 
   const [status, setStatus] = useState("Veteran");
-  const [branches, setBranches] = useState([]);        // array
-  const [eras, setEras] = useState([]);                // array
+  const [branches, setBranches] = useState([]); // array
+  const [eras, setEras] = useState([]); // array
   const [eraOther, setEraOther] = useState("");
 
   const [rhpClient, setRhpClient] = useState(false);
@@ -111,13 +110,14 @@ export default function SlotPicker({ eventId }) {
   const [widgetId, setWidgetId] = useState(null);
   const [captchaToken, setCaptchaToken] = useState("");
 
-  // Load slots (first five)
+  // Load slots (derive "taken" live via related rsvps(count))
   useEffect(() => {
     const load = async () => {
       setLoadingSlots(true);
       const { data, error } = await supabase
         .from("pickup_slots")
-        .select("id,label,capacity,taken,start_utc")
+        // Use PostgREST aggregate to count children rsvps per slot
+        .select("id,label,capacity,start_utc, rsvps:rsvps(count)")
         .eq("event_id", eventId)
         .order("start_utc", { ascending: true })
         .limit(5);
@@ -127,14 +127,19 @@ export default function SlotPicker({ eventId }) {
     load();
   }, [eventId]);
 
+  // Remaining seats based on live rsvps(count)
   const remaining = (s) => {
-    const cap = typeof s.capacity === "number" ? s.capacity : 0;
-    return Math.max(0, cap - (s.taken || 0));
+    const cap = Number.isFinite(s.capacity) ? s.capacity : 0;
+    const taken =
+      Array.isArray(s.rsvps) && s.rsvps.length ? Number(s.rsvps[0].count || 0) : 0;
+    return Math.max(0, cap - taken);
   };
 
   // Phone mask + auto-advance
   const formatPhone = (d) => {
-    const a = d.slice(0, 3), b = d.slice(3, 6), c = d.slice(6, 10);
+    const a = d.slice(0, 3),
+      b = d.slice(3, 6),
+      c = d.slice(6, 10);
     if (d.length <= 3) return `(${a}`;
     if (d.length <= 6) return `(${a}) ${b}`;
     return `(${a}) ${b}-${c}`;
@@ -149,9 +154,9 @@ export default function SlotPicker({ eventId }) {
 
   // ZIP max 5 + jump to Status
   const onZipChange = (e) => {
-    const next = e.target.value.replace(/\D/g, "").slice(0,5);
+    const next = e.target.value.replace(/\D/g, "").slice(0, 5);
     setZip(next);
-    if (errors.zip) setErrors(p => ({ ...p, zip: undefined }));
+    if (errors.zip) setErrors((p) => ({ ...p, zip: undefined }));
     if (next.length === 5) statusSelectRef.current?.focus();
   };
 
@@ -159,12 +164,14 @@ export default function SlotPicker({ eventId }) {
   useEffect(() => {
     if (!SITE_KEY) return;
     if (document.getElementById("cf-turnstile-script")) {
-      setScriptReady(!!window.turnstile); return;
+      setScriptReady(!!window.turnstile);
+      return;
     }
     const s = document.createElement("script");
     s.id = "cf-turnstile-script";
     s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-    s.async = true; s.defer = true;
+    s.async = true;
+    s.defer = true;
     s.onload = () => setScriptReady(true);
     document.head.appendChild(s);
   }, []);
@@ -184,10 +191,16 @@ export default function SlotPicker({ eventId }) {
     if (!window.turnstile || !widgetId) return "";
     if (captchaToken) return captchaToken;
     return new Promise((resolve) => {
-      const onToken = (e) => { resolve(e.detail.token); document.removeEventListener("cf-turnstile-token", onToken); };
+      const onToken = (e) => {
+        resolve(e.detail.token);
+        document.removeEventListener("cf-turnstile-token", onToken);
+      };
       document.addEventListener("cf-turnstile-token", onToken);
       window.turnstile.execute(widgetId);
-      setTimeout(() => { document.removeEventListener("cf-turnstile-token", onToken); resolve(""); }, 3000);
+      setTimeout(() => {
+        document.removeEventListener("cf-turnstile-token", onToken);
+        resolve("");
+      }, 3000);
     });
   };
   useEffect(() => {
@@ -199,8 +212,23 @@ export default function SlotPicker({ eventId }) {
   const isEmail = (v) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
 
   const scrollToFirstError = (errs) => {
-    const order = ["firstName","lastName","email","phone","address1","city","state","zip","status","eras","eraOther","branches","slot","consent"];
-    const key = order.find(k => errs[k]);
+    const order = [
+      "firstName",
+      "lastName",
+      "email",
+      "phone",
+      "address1",
+      "city",
+      "state",
+      "zip",
+      "status",
+      "eras",
+      "eraOther",
+      "branches",
+      "slot",
+      "consent",
+    ];
+    const key = order.find((k) => errs[k]);
     if (!key) return;
     const el = document.querySelector(`[data-field="${key}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -212,19 +240,19 @@ export default function SlotPicker({ eventId }) {
 
     const errs = {};
     if (!firstName.trim()) errs.firstName = "Required";
-    if (!lastName.trim())  errs.lastName  = "Required";
+    if (!lastName.trim()) errs.lastName = "Required";
     if (!email.trim() || !isEmail(email)) errs.email = "Valid email required";
     if (digits.length !== 10) errs.phone = "10 digits";
     if (!address1.trim()) errs.address1 = "Required";
-    if (!city.trim())     errs.city     = "Required";
-    if (!state.trim())    errs.state    = "Required";
-    if (!/^\d{5}$/.test(zip)) errs.zip  = "5 digits";
-    if (!status)          errs.status   = "Required";
-    if (eras.length === 0) errs.eras    = "Pick at least one";
+    if (!city.trim()) errs.city = "Required";
+    if (!state.trim()) errs.state = "Required";
+    if (!/^\d{5}$/.test(zip)) errs.zip = "5 digits";
+    if (!status) errs.status = "Required";
+    if (eras.length === 0) errs.eras = "Pick at least one";
     if (eras.includes("Other") && eraOther.trim().length < 2) errs.eraOther = "Please describe";
     if (branches.length === 0) errs.branches = "Pick at least one";
-    if (!slotId)           errs.slot    = "Pick a window";
-    if (!consent)          errs.consent = "Required";
+    if (!slotId) errs.slot = "Pick a window";
+    if (!consent) errs.consent = "Required";
 
     if (Object.keys(errs).length) {
       setErrors(errs);
@@ -236,14 +264,18 @@ export default function SlotPicker({ eventId }) {
 
     let token = captchaToken;
     if (!token && window.turnstile && widgetId) token = await getTurnstileToken();
-    if (!token) { setMessage("❌ Human verification failed."); setSubmitting(false); return; }
+    if (!token) {
+      setMessage("❌ Human verification failed.");
+      setSubmitting(false);
+      return;
+    }
 
     const payload = {
       event_id: eventId,
-      slot_id:  slotId,
+      slot_id: slotId,
       first_name: firstName.trim(),
-      last_name:  lastName.trim(),
-      email:      email.trim(),
+      last_name: lastName.trim(),
+      email: email.trim(),
       phone, // server strips non-digits
       status,
       branch_of_service: branches,
@@ -255,22 +287,25 @@ export default function SlotPicker({ eventId }) {
       consent: true,
       address1: address1.trim(),
       address2: address2.trim() || null,
-      city:      city.trim(),
-      state:     state.trim(),
+      city: city.trim(),
+      state: state.trim(),
       postal_code: zip.trim(),
       cf_turnstile_token: token,
     };
 
     try {
-      const resp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/reserve-rsvp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: process.env.REACT_APP_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const resp = await fetch(
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/reserve-rsvp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: process.env.REACT_APP_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const body = await resp.json().catch(() => null);
       if (!resp.ok) {
@@ -293,31 +328,96 @@ export default function SlotPicker({ eventId }) {
   return (
     <form className="tdp-form" onSubmit={doSubmit} noValidate>
       <div className="tdp-row">
-        <label data-field="firstName">First name*<input value={firstName} onChange={e=>setFirstName(e.target.value)} aria-invalid={!!errors.firstName} /></label>
-        <label data-field="lastName">Last name*<input value={lastName} onChange={e=>setLastName(e.target.value)} aria-invalid={!!errors.lastName} /></label>
+        <label data-field="firstName">
+          First name*
+          <input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            aria-invalid={!!errors.firstName}
+          />
+        </label>
+        <label data-field="lastName">
+          Last name*
+          <input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            aria-invalid={!!errors.lastName}
+          />
+        </label>
       </div>
 
       <div className="tdp-row">
-        <label data-field="email">Email*<input value={email} onChange={e=>setEmail(e.target.value)} aria-invalid={!!errors.email} /></label>
-        <label data-field="phone">Phone*<input value={phone} onChange={onPhoneChange} placeholder="(###) ###-####" aria-invalid={!!errors.phone} /></label>
+        <label data-field="email">
+          Email*
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={!!errors.email}
+          />
+        </label>
+        <label data-field="phone">
+          Phone*
+          <input
+            value={phone}
+            onChange={onPhoneChange}
+            placeholder="(###) ###-####"
+            aria-invalid={!!errors.phone}
+          />
+        </label>
       </div>
 
-      <label data-field="address1">Address*<input ref={addr1Ref} value={address1} onChange={e=>setAddress1(e.target.value)} aria-invalid={!!errors.address1} /></label>
-      <label className="tdp-muted">Address 2 (apt/unit optional)<input value={address2} onChange={e=>setAddress2(e.target.value)} /></label>
+      <label data-field="address1">
+        Address*
+        <input
+          ref={addr1Ref}
+          value={address1}
+          onChange={(e) => setAddress1(e.target.value)}
+          aria-invalid={!!errors.address1}
+        />
+      </label>
+      <label className="tdp-muted">
+        Address 2 (apt/unit optional)
+        <input value={address2} onChange={(e) => setAddress2(e.target.value)} />
+      </label>
 
       <div className="tdp-row">
-        <label data-field="city">City*<input value={city} onChange={e=>setCity(e.target.value)} aria-invalid={!!errors.city} /></label>
-        <label data-field="state">State*
-          <select value={state} onChange={e=>setState(e.target.value)} aria-invalid={!!errors.state}>
-            {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+        <label data-field="city">
+          City*
+          <input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            aria-invalid={!!errors.city}
+          />
+        </label>
+        <label data-field="state">
+          State*
+          <select
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            aria-invalid={!!errors.state}
+          >
+            {US_STATES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </label>
-        <label data-field="zip">ZIP*<input value={zip} onChange={onZipChange} aria-invalid={!!errors.zip} /></label>
+        <label data-field="zip">
+          ZIP*
+          <input value={zip} onChange={onZipChange} aria-invalid={!!errors.zip} />
+        </label>
       </div>
 
       <div className="tdp-row">
-        <label data-field="status">Status*
-          <select ref={statusSelectRef} value={status} onChange={e=>setStatus(e.target.value)} aria-invalid={!!errors.status}>
+        <label data-field="status">
+          Status*
+          <select
+            ref={statusSelectRef}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-invalid={!!errors.status}
+          >
             <option>Veteran</option>
             <option>Active Duty</option>
             <option>Guard/Reserve</option>
@@ -327,7 +427,11 @@ export default function SlotPicker({ eventId }) {
       </div>
 
       {/* Service Era chips */}
-<div data-field="eras" className={`tdp-section ${errors.eras ? "tdp-err-ring" : ""}`}>        <MultiChipGroup
+      <div
+        data-field="eras"
+        className={`tdp-section ${errors.eras ? "tdp-err-ring" : ""}`}
+      >
+        <MultiChipGroup
           label="Service Era (select all that apply)*"
           options={ERAS}
           values={eras}
@@ -338,12 +442,19 @@ export default function SlotPicker({ eventId }) {
       {eras.includes("Other") && (
         <label data-field="eraOther" className="tdp-chip-note">
           If “Other”, please describe
-          <input value={eraOther} onChange={e=>setEraOther(e.target.value)} aria-invalid={!!errors.eraOther} />
+          <input
+            value={eraOther}
+            onChange={(e) => setEraOther(e.target.value)}
+            aria-invalid={!!errors.eraOther}
+          />
         </label>
       )}
 
       {/* Branch chips */}
-        <div data-field="branches" className={`tdp-section ${errors.branches ? "tdp-err-ring" : ""}`}>
+      <div
+        data-field="branches"
+        className={`tdp-section ${errors.branches ? "tdp-err-ring" : ""}`}
+      >
         <MultiChipGroup
           label="Branch of Service (select all that apply)*"
           options={BRANCHES}
@@ -354,53 +465,85 @@ export default function SlotPicker({ eventId }) {
       </div>
 
       {/* Slot grid */}
-      <div className={`tdp-slotgrid tdp-section ${errors.slot ? "tdp-err-ring" : ""}`} data-field="slot">
+      <div
+        className={`tdp-slotgrid tdp-section ${errors.slot ? "tdp-err-ring" : ""}`}
+        data-field="slot"
+      >
         <div className="tdp-slotgrid-head">Pickup window*</div>
         <div className="tdp-slotgrid-body">
           {loadingSlots && <div className="tdp-slot skel" />}
-          {!loadingSlots && slots.map(s => {
-            const rem = remaining(s);
-            const disabled = rem <= 0;
-            return (
-              <label key={s.id} className={`tdp-slot ${disabled ? "tdp-slot--full" : ""} ${slotId === s.id ? "tdp-slot--sel" : ""}`}>
-                <input
-                  type="radio"
-                  name="slot"
-                  value={s.id}
-                  checked={slotId === s.id}
-                  disabled={disabled}
-                  onChange={()=>setSlotId(s.id)}
-                />
-                <div className="tdp-slot-main">{s.label}</div>
-                <div className="tdp-slot-sub">{disabled ? "FULL" : `${rem} spots left`}</div>
-              </label>
-            );
-          })}
+          {!loadingSlots &&
+            slots.map((s) => {
+              const rem = remaining(s);
+              const disabled = rem <= 0;
+              return (
+                <label
+                  key={s.id}
+                  className={`tdp-slot ${disabled ? "tdp-slot--full" : ""} ${
+                    slotId === s.id ? "tdp-slot--sel" : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="slot"
+                    value={s.id}
+                    checked={slotId === s.id}
+                    disabled={disabled}
+                    onChange={() => setSlotId(s.id)}
+                  />
+                  <div className="tdp-slot-main">{s.label}</div>
+                  <div className="tdp-slot-sub">
+                    {disabled ? "FULL" : `${rem} spots left`}
+                  </div>
+                </label>
+              );
+            })}
         </div>
       </div>
 
       {/* Big toggles */}
       <div className="tdp-toggles" data-field="toggles">
-        <button type="button" className={`tdp-toggle ${rhpClient ? "on":""}`} onClick={()=>setRhpClient(!rhpClient)} aria-pressed={rhpClient}>
+        <button
+          type="button"
+          className={`tdp-toggle ${rhpClient ? "on" : ""}`}
+          onClick={() => setRhpClient(!rhpClient)}
+          aria-pressed={rhpClient}
+        >
           <i /> Select if you are you a client of the Road Home Program.
-        </button>
-
-        <button type="button" className={`tdp-toggle ${peerContact ? "on":""}`} onClick={()=>setPeerContact(!peerContact)} aria-pressed={peerContact}>
-          <i /> Would you like to be contacted by a peer, veteran, or family member of the RHP team about our no cost mental health services available to you and/or your family?
-        </button>
-
-        <button type="button" className={`tdp-toggle ${raffle ? "on":""}`} onClick={()=>setRaffle(!raffle)} aria-pressed={raffle}>
-          <i /> Enter me in the Mattoon Texas Roadhouse raffle for a chance to win one of 5 $40 restaurant gift cards.
         </button>
 
         <button
           type="button"
-          className={`tdp-toggle ${consent ? "on":""} ${errors.consent ? "tdp-toggle-error":""}`}
-          onClick={()=>setConsent(!consent)}
+          className={`tdp-toggle ${peerContact ? "on" : ""}`}
+          onClick={() => setPeerContact(!peerContact)}
+          aria-pressed={peerContact}
+        >
+          <i /> Would you like to be contacted by a peer, veteran, or family member
+          of the RHP team about our no cost mental health services available to you
+          and/or your family?
+        </button>
+
+        <button
+          type="button"
+          className={`tdp-toggle ${raffle ? "on" : ""}`}
+          onClick={() => setRaffle(!raffle)}
+          aria-pressed={raffle}
+        >
+          <i /> Enter me in the Mattoon Texas Roadhouse raffle for a chance to win
+          one of 5 $40 restaurant gift cards.
+        </button>
+
+        <button
+          type="button"
+          className={`tdp-toggle ${consent ? "on" : ""} ${
+            errors.consent ? "tdp-toggle-error" : ""
+          }`}
+          onClick={() => setConsent(!consent)}
           aria-pressed={consent}
           data-field="consent"
         >
-          <i /> I understand one meal kit per household and agree to bring a valid Mil/Vet ID or DD214 for pickup.
+          <i /> I understand one meal kit per household and agree to bring a valid
+          Mil/Vet ID or DD214 for pickup.
         </button>
       </div>
 
@@ -410,7 +553,11 @@ export default function SlotPicker({ eventId }) {
         {submitting ? "Submitting…" : "Complete RSVP"}
       </button>
 
-      {message && <div className={`tdp-msg ${/^(✅|Success)/.test(message) ? "ok" : "err"}`}>{message}</div>}
+      {message && (
+        <div className={`tdp-msg ${/^(✅|Success)/.test(message) ? "ok" : "err"}`}>
+          {message}
+        </div>
+      )}
     </form>
   );
 }

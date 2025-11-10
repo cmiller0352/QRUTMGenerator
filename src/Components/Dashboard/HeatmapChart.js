@@ -32,7 +32,7 @@ const HeatmapChart = ({ data }) => {
       pt.count ? Math.min(pt.count / 5, 1.0) : 0.8,
     ]) || [];
 
-  const defaultCenter = [39.8283, -98.5795];
+ // const defaultCenter = [39.8283, -98.5795];
 
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3, height: '100%' }}>

@@ -77,7 +77,7 @@ export default function SlotPicker({ eventId }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [emailHint, setEmailHint] = useState("");
+  //const [emailHint, setEmailHint] = useState("");
   const [phone, setPhone] = useState(""); // formatted display
   const [digits, setDigits] = useState(""); // raw digits
 

@@ -81,7 +81,6 @@ export default function TurkeyDashboard() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
 
   // KPIs
   const [branchCounts, setBranchCounts] = useState({});
@@ -162,7 +161,6 @@ export default function TurkeyDashboard() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setErr("");
       try {
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
@@ -174,7 +172,7 @@ export default function TurkeyDashboard() {
           setSelectedId(null);
         }
       } catch (e) {
-        if (!cancelled) setErr(e.message || "Failed to load");
+        // optional: console.error(e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -383,7 +381,7 @@ export default function TurkeyDashboard() {
       const esc = (v) => {
         const s = String(v ?? "");
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        };
+      };
       const csv =
         cols.map((c) => esc(c.h)).join(",") +
         "\n" +
@@ -489,16 +487,6 @@ export default function TurkeyDashboard() {
     setToDate("");
   };
 
-  const sortedSlots = Object.keys(slotCounts).sort((a, b) => {
-    const ia = SLOT_ORDER.indexOf(a);
-    const ib = SLOT_ORDER.indexOf(b);
-    if (ia >= 0 && ib >= 0) return ia - ib;
-    if (ia >= 0) return -1;
-    if (ib >= 0) return 1;
-    return a.localeCompare(b);
-  });
-
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const clientPct = clientCounts.total
     ? Math.round((clientCounts.yes / clientCounts.total) * 100)
     : 0;

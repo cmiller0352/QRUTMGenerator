@@ -119,8 +119,7 @@ export default function SlotPicker({ eventId }) {
         // Use PostgREST aggregate to count children rsvps per slot
         .select("id,label,capacity,start_utc, rsvps:rsvps(count)")
         .eq("event_id", eventId)
-        .order("start_utc", { ascending: true })
-        .limit(5);
+        .order("start_utc", { ascending: true });
       if (!error && data) setSlots(data);
       setLoadingSlots(false);
     };

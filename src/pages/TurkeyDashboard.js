@@ -23,6 +23,7 @@ const SLOT_ORDER = [
   "12:00–12:30 pm",
   "12:30–1:00 pm",
   "1:00–1:30 pm",
+  "1:30–2:00 pm",
 ];
 
 function fmtDate(ts) {
@@ -63,7 +64,6 @@ function Toggle({ label, value, onChange }) {
     </label>
   );
 }
-
 
 export default function TurkeyDashboard() {
   // filters
@@ -208,13 +208,14 @@ export default function TurkeyDashboard() {
     contactFilter,
   ]);
 
-  // fetch KPIs (light)
+  // fetch KPIs (includes zero-count slots)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        // Include event_id so we can merge in pickup_slots for zero-count display.
         const { data, error } = await buildQuery(
-          "branch_of_service, era, era_list, slot_label, slot_capacity, rhp_client_status, peer_contact_opt_in"
+          "event_id, branch_of_service, era, era_list, slot_label, slot_capacity, rhp_client_status, peer_contact_opt_in"
         );
         if (error) throw error;
         const list = data || [];
@@ -250,7 +251,7 @@ export default function TurkeyDashboard() {
           }
         }
 
-        // slot counts + capacity
+        // slot counts + capacity from RSVPs
         const smap = {};
         const cap = {};
         for (const r of list) {
@@ -270,6 +271,39 @@ export default function TurkeyDashboard() {
           else if (r.rhp_client_status === false) cNo++;
           if (r.peer_contact_opt_in === true) pYes++;
           else if (r.peer_contact_opt_in === false) pNo++;
+        }
+
+        // --- Merge in pickup_slots so zero-count/new slots appear ---
+        try {
+          // event IDs present in the current RSVP result
+          let targetEventIds = Array.from(
+            new Set((list || []).map((r) => r.event_id).filter(Boolean))
+          );
+
+          // If user filtered by event name and there are 0 RSVPs (hence no IDs), resolve IDs by name
+          if (!targetEventIds.length && eventFilter?.trim()) {
+            const { data: evs } = await supabase
+              .from("events")
+              .select("id, name")
+              .ilike("name", `%${eventFilter.trim()}%`);
+            targetEventIds = Array.from(new Set((evs || []).map((e) => e.id)));
+          }
+
+          if (targetEventIds.length) {
+            const { data: slotsList } = await supabase
+              .from("pickup_slots")
+              .select("label, capacity, event_id")
+              .in("event_id", targetEventIds);
+
+            (slotsList || []).forEach((s) => {
+              const label = (s.label || "").trim();
+              if (!label) return;
+              if (!(label in smap)) smap[label] = 0; // show with 0
+              if (cap[label] == null) cap[label] = s.capacity ?? FALLBACK_SLOT_CAPACITY;
+            });
+          }
+        } catch {
+          // ignore merge failures; dashboard still renders from RSVPs
         }
 
         if (!cancelled) {
@@ -349,7 +383,7 @@ export default function TurkeyDashboard() {
       const esc = (v) => {
         const s = String(v ?? "");
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
+        };
       const csv =
         cols.map((c) => esc(c.h)).join(",") +
         "\n" +
@@ -618,36 +652,45 @@ export default function TurkeyDashboard() {
             </BreakdownCard>
 
             <BreakdownCard title="Slot Utilization">
-              {sortedSlots.length === 0 ? (
+              {Object.keys(slotCounts).length === 0 ? (
                 <div style={{ color: "#6b7280" }}>No data</div>
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                  {sortedSlots.map((slot) => {
-                    const count = slotCounts[slot] || 0;
-                    const cap = slotCapacities[slot] ?? FALLBACK_SLOT_CAPACITY;
-                    const pct = Math.min(
-                      100,
-                      Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100)
-                    );
-                    return (
-                      <div
-                        key={slot}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "220px 1fr 90px",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
-                        <div style={{ whiteSpace: "nowrap" }}>{slot}</div>
-                        <Progress value={pct} />
-                        <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          <strong>{count}</strong> / {cap || FALLBACK_SLOT_CAPACITY} ({pct}
-                          %)
+                  {Object.keys(slotCounts)
+                    .sort((a, b) => {
+                      const ia = SLOT_ORDER.indexOf(a);
+                      const ib = SLOT_ORDER.indexOf(b);
+                      if (ia >= 0 && ib >= 0) return ia - ib;
+                      if (ia >= 0) return -1;
+                      if (ib >= 0) return 1;
+                      return a.localeCompare(b);
+                    })
+                    .map((slot) => {
+                      const count = slotCounts[slot] || 0;
+                      const cap = slotCapacities[slot] ?? FALLBACK_SLOT_CAPACITY;
+                      const pct = Math.min(
+                        100,
+                        Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100)
+                      );
+                      return (
+                        <div
+                          key={slot}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "220px 1fr 90px",
+                            gap: 10,
+                            alignItems: "center",
+                          }}
+                        >
+                          <div style={{ whiteSpace: "nowrap" }}>{slot}</div>
+                          <Progress value={pct} />
+                          <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                            <strong>{count}</strong> / {cap || FALLBACK_SLOT_CAPACITY} ({pct}
+                            %)
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </BreakdownCard>
@@ -787,7 +830,6 @@ export default function TurkeyDashboard() {
           Rows highlighted in green requested a peer contact.
         </div>
       </section>
-      
 
       {/* Edit Modal */}
       {editRow && (

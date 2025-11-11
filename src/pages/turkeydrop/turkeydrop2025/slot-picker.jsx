@@ -1,5 +1,5 @@
 // src/pages/turkeydrop/turkeydrop2025/slot-picker.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "../../../utils/supabaseClient";
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
@@ -115,7 +115,7 @@ export default function SlotPicker({ eventId }) {
     if (window.turnstile && widgetId) window.turnstile.reset(widgetId);
   };
 
-  const fetchSlots = async () => {
+  const fetchSlots = useCallback(async () => {
     setLoadingSlots(true);
     const { data } = await supabase
       .from("pickup_slots")
@@ -124,12 +124,11 @@ export default function SlotPicker({ eventId }) {
       .order("start_utc", { ascending: true });
     if (data) setSlots(data);
     setLoadingSlots(false);
-  };
+  }, [eventId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchSlots();
-  }, [eventId]);
+  }, [fetchSlots]);
 
   const remaining = (s) => {
     const cap = Number.isFinite(s.capacity) ? s.capacity : 0;
@@ -189,7 +188,6 @@ export default function SlotPicker({ eventId }) {
     });
     setWidgetId(id);
   }, [scriptReady, widgetId]);
-
   const getTurnstileToken = async () => {
     if (!window.turnstile || !widgetId) return "";
     if (captchaToken) return captchaToken;

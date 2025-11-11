@@ -77,7 +77,6 @@ export default function SlotPicker({ eventId }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  //const [emailHint, setEmailHint] = useState("");
   const [phone, setPhone] = useState(""); // formatted display
   const [digits, setDigits] = useState(""); // raw digits
 
@@ -110,28 +109,32 @@ export default function SlotPicker({ eventId }) {
   const [widgetId, setWidgetId] = useState(null);
   const [captchaToken, setCaptchaToken] = useState("");
 
-  // Load slots (derive "taken" live via related rsvps(count))
+  // ---- Helpers ----
+  const refreshTurnstile = () => {
+    setCaptchaToken("");
+    if (window.turnstile && widgetId) window.turnstile.reset(widgetId);
+  };
+
+  const fetchSlots = async () => {
+    setLoadingSlots(true);
+    const { data } = await supabase
+      .from("pickup_slots")
+      .select("id,label,capacity,taken,start_utc")
+      .eq("event_id", eventId)
+      .order("start_utc", { ascending: true });
+    if (data) setSlots(data);
+    setLoadingSlots(false);
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const load = async () => {
-      setLoadingSlots(true);
-      const { data, error } = await supabase
-        .from("pickup_slots")
-        // Use PostgREST aggregate to count children rsvps per slot
-        .select("id,label,capacity,start_utc, rsvps:rsvps(count)")
-        .eq("event_id", eventId)
-        .order("start_utc", { ascending: true });
-      if (!error && data) setSlots(data);
-      setLoadingSlots(false);
-    };
-    load();
+    fetchSlots();
   }, [eventId]);
 
-  // Remaining seats based on live rsvps(count)
   const remaining = (s) => {
     const cap = Number.isFinite(s.capacity) ? s.capacity : 0;
-    const taken =
-      Array.isArray(s.rsvps) && s.rsvps.length ? Number(s.rsvps[0].count || 0) : 0;
-    return Math.max(0, cap - taken);
+    const t = Number.isFinite(s.taken) ? s.taken : 0;
+    return Math.max(0, cap - t);
   };
 
   // Phone mask + auto-advance
@@ -186,6 +189,7 @@ export default function SlotPicker({ eventId }) {
     });
     setWidgetId(id);
   }, [scriptReady, widgetId]);
+
   const getTurnstileToken = async () => {
     if (!window.turnstile || !widgetId) return "";
     if (captchaToken) return captchaToken;
@@ -212,20 +216,10 @@ export default function SlotPicker({ eventId }) {
 
   const scrollToFirstError = (errs) => {
     const order = [
-      "firstName",
-      "lastName",
-      "email",
-      "phone",
-      "address1",
-      "city",
-      "state",
-      "zip",
-      "status",
-      "eras",
-      "eraOther",
-      "branches",
-      "slot",
-      "consent",
+      "firstName","lastName","email","phone",
+      "address1","city","state","zip",
+      "status","eras","eraOther","branches",
+      "slot","consent",
     ];
     const key = order.find((k) => errs[k]);
     if (!key) return;
@@ -237,6 +231,7 @@ export default function SlotPicker({ eventId }) {
     e.preventDefault();
     setMessage("");
 
+    // Basic client validation
     const errs = {};
     if (!firstName.trim()) errs.firstName = "Required";
     if (!lastName.trim()) errs.lastName = "Required";
@@ -261,6 +256,30 @@ export default function SlotPicker({ eventId }) {
 
     setSubmitting(true);
 
+    // Pre-submit: revalidate remaining for the selected slot
+    try {
+      const { data: freshSlot } = await supabase
+        .from("pickup_slots")
+        .select("id,capacity,taken,label")
+        .eq("id", slotId)
+        .maybeSingle();
+
+      const remainingNow = freshSlot
+        ? Math.max(0, (freshSlot.capacity || 0) - (freshSlot.taken || 0))
+        : 0;
+
+      if (remainingNow <= 0) {
+        await fetchSlots();
+        setMessage("⚠️ That pickup window just filled. Please choose another.");
+        refreshTurnstile();
+        setSubmitting(false);
+        return;
+      }
+    } catch {
+      // If the precheck fails, continue to server (it will enforce anyway)
+    }
+
+    // Turnstile
     let token = captchaToken;
     if (!token && window.turnstile && widgetId) token = await getTurnstileToken();
     if (!token) {
@@ -307,20 +326,35 @@ export default function SlotPicker({ eventId }) {
       );
 
       const body = await resp.json().catch(() => null);
+
       if (!resp.ok) {
+        if (resp.status === 409) {
+          await fetchSlots();
+          setMessage("⚠️ That pickup window just filled. Please choose another.");
+          refreshTurnstile();
+          return;
+        }
+        if (resp.status === 400 && /Human verification/i.test(body?.error || "")) {
+          setMessage("❌ Please complete the verification and try again.");
+          refreshTurnstile();
+          return;
+        }
         setMessage(`⚠️ ${body?.error || `HTTP ${resp.status}`}`);
+        refreshTurnstile();
         return;
       }
+
       if (body?.ok || body?.success) {
         window.location.href = "/turkeydrop2025/thankyou";
       } else {
         setMessage(`⚠️ ${body?.error || "Unknown error"}`);
+        refreshTurnstile();
       }
     } catch (err) {
       setMessage(`❌ ${err.message || "Network error"}`);
+      refreshTurnstile();
     } finally {
       setSubmitting(false);
-      setCaptchaToken("");
     }
   };
 

@@ -1,5 +1,5 @@
 // src/pages/turkeydrop/turkeydrop2025/index.jsx
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../utils/supabaseClient";
 import SlotPicker from "./slot-picker";
 import "./turkeydrop2025.css";
@@ -25,17 +25,46 @@ export default function TurkeyDrop2025() {
     document.title = pageTitle;
   }, []);
 
-  useEffect(() => {
-    const loadCounts = async () => {
-      const { data, error } = await supabase
-        .from("event_counts")
-        .select("reserved, remaining, total_capacity")
-        .eq("event_id", EVENT_ID)
-        .maybeSingle();
-      if (!error && data) setCounts(data);
-    };
-    loadCounts();
+  const computeCountsFromSlots = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("pickup_slots")
+      .select("capacity,taken")
+      .eq("event_id", EVENT_ID);
+
+    if (error || !data) {
+      return { reserved: 0, remaining: 0, total_capacity: 0 };
+    }
+    const total_capacity = data.reduce((a, r) => a + (Number(r.capacity) || 0), 0);
+    const reserved = data.reduce((a, r) => a + (Number(r.taken) || 0), 0);
+    const remaining = Math.max(0, total_capacity - reserved);
+    return { reserved, remaining, total_capacity };
   }, []);
+
+  const loadCounts = useCallback(async () => {
+    // Try materialized/SQL view first for speed (if present)
+    const { data, error } = await supabase
+      .from("event_counts")
+      .select("reserved, remaining, total_capacity")
+      .eq("event_id", EVENT_ID)
+      .maybeSingle();
+
+    if (!error && data) {
+      setCounts({
+        reserved: Number(data.reserved) || 0,
+        remaining: Number(data.remaining) || 0,
+        total_capacity: Number(data.total_capacity) || 0,
+      });
+      return;
+    }
+
+    // Fallback: compute live from pickup_slots (capacity/taken)
+    const fallback = await computeCountsFromSlots();
+    setCounts(fallback);
+  }, [computeCountsFromSlots]);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
 
   const filled = counts.reserved || 0;
   const total = counts.total_capacity || 0;
@@ -76,13 +105,11 @@ export default function TurkeyDrop2025() {
           </div>
 
           <p className="tdp-sub">
-  Sign up for a <strong>FREE Thanksgiving meal kit</strong> for your family — now
-  including an <strong>Aldi gift card</strong> to cover the cost of a turkey.
-  Thanksgiving sides (feeds up to 4) will be provided at pickup. One meal kit per
-  household.
-</p>
-
-
+            Sign up for a <strong>FREE Thanksgiving meal kit</strong> for your family — now
+            including an <strong>Aldi gift card</strong> to cover the cost of a turkey.
+            Thanksgiving sides (feeds up to 4) will be provided at pickup. One meal kit per
+            household.
+          </p>
 
           <div className="tdp-block">
             <h3>Pick-up Location</h3>
@@ -113,10 +140,7 @@ export default function TurkeyDrop2025() {
           <div className="tdp-block">
             <h3>Reservations</h3>
             <div className="tdp-progress">
-              <div
-                className="tdp-progress-bar"
-                style={{ width: `${pct}%` }}
-              />
+              <div className="tdp-progress-bar" style={{ width: `${pct}%` }} />
             </div>
             <div className="tdp-progress-meta">
               <span>
@@ -173,12 +197,8 @@ function Sponsors() {
           <li>FOX HOLLER COFFEE</li>
           <li>GOSPEL ASSEMBLY CHURCH</li>
           <li>AFSCME LOCAL 3494 - HEARTLAND HUMAN SERVICES</li>
-          <li>
-            KNIGHTS OF COLUMBUS FOURTH DEGREE, EFFINGHAM ASSEMBLY 214
-          </li>
-          <li>
-            LAND OF LINCOLN CREDIT UNION (Effingham South Branch)
-          </li>
+          <li>KNIGHTS OF COLUMBUS FOURTH DEGREE, EFFINGHAM ASSEMBLY 214</li>
+          <li>LAND OF LINCOLN CREDIT UNION (Effingham South Branch)</li>
           <li>SHERWIN-WILLIAMS</li>
           <li>SS CHAD EXPRESS</li>
           <li>T-MOBILE</li>
@@ -221,8 +241,7 @@ function Sponsors() {
 
 /* ---------- Map ---------- */
 function MapBlock() {
-  const addr =
-    "Family Care Associates, 1106 N Merchant St, Effingham, IL 62401";
+  const addr = "Family Care Associates, 1106 N Merchant St, Effingham, IL 62401";
   const q = encodeURIComponent(addr);
   return (
     <div className="tdp-map">
@@ -273,7 +292,6 @@ function ReservationCard() {
 }
 
 /* ---------- Footer ---------- */
-// REPLACE your existing footer with this version
 function RHPSiteFooter() {
   return (
     <footer className="tdp-footer" role="contentinfo">
@@ -294,13 +312,15 @@ function RHPSiteFooter() {
             </div>
             <div className="tdp-footer__contact">
               1645 W. Jackson Blvd., Suite 602, Chicago, IL 60612
-              <span className="tdp-dot" aria-hidden>•</span>
+              <span className="tdp-dot" aria-hidden>
+                •
+              </span>
               <a href="tel:13129428387">(312) 942-8387 (VETS)</a>
             </div>
           </div>
         </div>
 
-        {/* Nav – swap these hrefs to the exact roadhomeprogram.org URLs */}
+        {/* Nav – update hrefs to the exact roadhomeprogram.org URLs if needed */}
         <nav className="tdp-footer__nav" aria-label="Footer">
           <a href="https://roadhomeprogram.org/family-center/">Help for Families</a>
           <a href="https://roadhomeprogram.org/get-care/">Get Care</a>
@@ -310,9 +330,17 @@ function RHPSiteFooter() {
           <a href="https://roadhomeprogram.org/outpatient-program/">Outpatient Program</a>
           <a href="https://roadhomeprogram.org/outreach-and-events/">Outreach and Events</a>
           <a href="https://roadhomeprogram.org/contact-us/">General Information</a>
-          <a href="https://www.rush.edu/website-privacy-statement" target="_blank" rel="noreferrer">Privacy Statement</a>
-          <a href="https://www.rush.edu/disclaimer" target="_blank" rel="noreferrer">Disclaimer</a>
-          <a href="https://www.rush.edu/sites/default/files/rush-nondiscrimination-policy.pdf" target="_blank" rel="noreferrer">
+          <a href="https://www.rush.edu/website-privacy-statement" target="_blank" rel="noreferrer">
+            Privacy Statement
+          </a>
+          <a href="https://www.rush.edu/disclaimer" target="_blank" rel="noreferrer">
+            Disclaimer
+          </a>
+          <a
+            href="https://www.rush.edu/sites/default/files/rush-nondiscrimination-policy.pdf"
+            target="_blank"
+            rel="noreferrer"
+          >
             Nondiscrimination Policy
           </a>
         </nav>

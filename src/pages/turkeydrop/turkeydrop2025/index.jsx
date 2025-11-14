@@ -14,6 +14,9 @@ const description =
   "Join us in Effingham, Illinois on November 15th for the Road Home Program’s annual Turkey Drop — a free turkey and sides for veterans, service members, and their families. RSVP required.";
 const image = "https://www.roadhome.io/og/turkeydrop2025-banner.png"; // update when ready
 
+// Flip this to true when you are ready to close online registrations
+const REGISTRATION_CLOSED = true;
+
 export default function TurkeyDrop2025() {
   const [counts, setCounts] = useState({
     reserved: 0,
@@ -34,8 +37,14 @@ export default function TurkeyDrop2025() {
     if (error || !data) {
       return { reserved: 0, remaining: 0, total_capacity: 0 };
     }
-    const total_capacity = data.reduce((a, r) => a + (Number(r.capacity) || 0), 0);
-    const reserved = data.reduce((a, r) => a + (Number(r.taken) || 0), 0);
+    const total_capacity = data.reduce(
+      (a, r) => a + (Number(r.capacity) || 0),
+      0
+    );
+    const reserved = data.reduce(
+      (a, r) => a + (Number(r.taken) || 0),
+      0
+    );
     const remaining = Math.max(0, total_capacity - reserved);
     return { reserved, remaining, total_capacity };
   }, []);
@@ -105,10 +114,10 @@ export default function TurkeyDrop2025() {
           </div>
 
           <p className="tdp-sub">
-            Sign up for a <strong>FREE Thanksgiving meal kit</strong> for your family — now
-            including an <strong>Aldi gift card</strong> to cover the cost of a turkey.
-            Thanksgiving sides (feeds up to 4) will be provided at pickup. One meal kit per
-            household.
+            Sign up for a <strong>FREE Thanksgiving meal kit</strong> for your
+            family — now including an <strong>Aldi gift card</strong> to cover
+            the cost of a turkey. Thanksgiving sides (feeds up to 4) will be
+            provided at pickup. One meal kit per household.
           </p>
 
           <div className="tdp-block">
@@ -136,11 +145,14 @@ export default function TurkeyDrop2025() {
               Duty)
             </p>
           </div>
-
+{!REGISTRATION_CLOSED && (
           <div className="tdp-block">
             <h3>Reservations</h3>
             <div className="tdp-progress">
-              <div className="tdp-progress-bar" style={{ width: `${pct}%` }} />
+              <div
+                className="tdp-progress-bar"
+                style={{ width: `${pct}%` }}
+              />
             </div>
             <div className="tdp-progress-meta">
               <span>
@@ -149,13 +161,17 @@ export default function TurkeyDrop2025() {
               <span>Remaining kits: {counts.remaining ?? 0}</span>
             </div>
           </div>
-
+)}
           <Sponsors />
           <MapBlock />
         </section>
 
         <section className="tdp-right">
-          <ReservationCard />
+          {REGISTRATION_CLOSED ? (
+            <RegistrationClosedCard />
+          ) : (
+            <ReservationCard />
+          )}
         </section>
       </main>
 
@@ -217,7 +233,7 @@ function Sponsors() {
           <li>BALDA DENTAL</li>
           <li>DANNY’S BAR &amp; GRILL</li>
           <li>DENT COULSON ELDER LAW</li>
-          <li>DUST & SON AUTO SUPPLY</li>
+          <li>DUST &amp; SON AUTO SUPPLY</li>
           <li>EFFINGHAM PELVIC HEALTH</li>
           <li>EFFINGHAM DENTAL GROUP</li>
           <li>FARLEY INSURANCE AGENCY</li>
@@ -272,7 +288,7 @@ function MapBlock() {
   );
 }
 
-/* ---------- Reservation ---------- */
+/* ---------- Reservation (open state) ---------- */
 function ReservationCard() {
   return (
     <article className="tdp-card">
@@ -286,6 +302,45 @@ function ReservationCard() {
         Having trouble? Call{" "}
         <a href="tel:217-347-2597">217-347-2597</a> and our team will register
         you by phone.
+      </p>
+    </article>
+  );
+}
+
+/* ---------- Closed state card ---------- */
+function RegistrationClosedCard() {
+  return (
+    <article className="tdp-card">
+      <h2 className="tdp-card-title">Registration is now closed</h2>
+      <p className="tdp-card-sub">
+        Online reservations for the 2025 Effingham Turkey Drop are now closed
+        so our team can finalize packing and logistics.
+      </p>
+
+      <div className="tdp-block">
+        <h3>Event details</h3>
+        <p>
+          Saturday, <strong>November 15th</strong>
+          <br />
+          11:00 am — 2:00 pm
+          <br />
+          Family Care Associates
+          <br />
+          1106 N Merchant St, Effingham, IL 62401
+        </p>
+      </div>
+
+      <div className="tdp-block">
+        <h3>Already registered?</h3>
+        <p>
+          Please bring your confirmation email and a valid Military/Veteran ID
+          or DD214 to check in during your selected pickup window.
+        </p>
+      </div>
+
+      <p className="tdp-help">
+        Questions about your reservation? Call{" "}
+        <a href="tel:217-347-2597">217-347-2597</a>.
       </p>
     </article>
   );
@@ -308,7 +363,8 @@ function RHPSiteFooter() {
           <div className="tdp-footer__brandtext">
             <div className="tdp-footer__title">Road Home Program</div>
             <div className="tdp-footer__org">
-              The National Center of Excellence for Veterans and Their Families at Rush
+              The National Center of Excellence for Veterans and Their Families
+              at Rush
             </div>
             <div className="tdp-footer__contact">
               1645 W. Jackson Blvd., Suite 602, Chicago, IL 60612
@@ -322,18 +378,34 @@ function RHPSiteFooter() {
 
         {/* Nav – update hrefs to the exact roadhomeprogram.org URLs if needed */}
         <nav className="tdp-footer__nav" aria-label="Footer">
-          <a href="https://roadhomeprogram.org/family-center/">Help for Families</a>
+          <a href="https://roadhomeprogram.org/family-center/">
+            Help for Families
+          </a>
           <a href="https://roadhomeprogram.org/get-care/">Get Care</a>
           <a href="https://roadhomeprogram.org/accelerated-treatment-program/">
             Accelerated Treatment Program
           </a>
-          <a href="https://roadhomeprogram.org/outpatient-program/">Outpatient Program</a>
-          <a href="https://roadhomeprogram.org/outreach-and-events/">Outreach and Events</a>
-          <a href="https://roadhomeprogram.org/contact-us/">General Information</a>
-          <a href="https://www.rush.edu/website-privacy-statement" target="_blank" rel="noreferrer">
+          <a href="https://roadhomeprogram.org/outpatient-program/">
+            Outpatient Program
+          </a>
+          <a href="https://roadhomeprogram.org/outreach-and-events/">
+            Outreach and Events
+          </a>
+          <a href="https://roadhomeprogram.org/contact-us/">
+            General Information
+          </a>
+          <a
+            href="https://www.rush.edu/website-privacy-statement"
+            target="_blank"
+            rel="noreferrer"
+          >
             Privacy Statement
           </a>
-          <a href="https://www.rush.edu/disclaimer" target="_blank" rel="noreferrer">
+          <a
+            href="https://www.rush.edu/disclaimer"
+            target="_blank"
+            rel="noreferrer"
+          >
             Disclaimer
           </a>
           <a

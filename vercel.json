@@ -1,11 +1,35 @@
 {
   "rewrites": [
-    { "source": "/r/:shortCode", "destination": "/api/redirect/:shortCode" },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
 
-    { "source": "/turkeydrop2025", "destination": "/index.html" },
-    { "source": "/turkeydrop2025/thankyou", "destination": "/index.html" }
+    {
+      "source": "/r/:shortCode",
+      "destination": "/api/redirect/:shortCode"
+    },
+
+    {
+      "source": "/:shortCode",
+      "destination": "/api/redirect/:shortCode"
+    },
+
+    {
+      "source": "/turkeydrop2025",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/turkeydrop2025/thankyou",
+      "destination": "/index.html"
+    }
   ],
+
   "redirects": [
-    { "source": "/turkeydrop", "destination": "/turkeydrop2025", "permanent": true }
+    {
+      "source": "/turkeydrop",
+      "destination": "/turkeydrop2025",
+      "permanent": true
+    }
   ]
 }

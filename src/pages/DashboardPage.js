@@ -37,41 +37,59 @@ const DashboardPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Base charts from RPC
-      const { data: charts, error } = await supabase.rpc('get_dashboard_data');
-      if (error) {
-        console.error('Error fetching dashboard data:', error);
+      // 1) Base charts from RPC
+      const { data: charts, error: chartsError } = await supabase.rpc('get_dashboard_data');
+      if (chartsError) {
+        console.error('Error fetching dashboard data:', chartsError);
       } else {
         setChartData(charts || {});
       }
 
-      // Summary metrics (filter out null/empty)
-      const [qrCodesRes, redirectsRes, campaignsRes, citiesRes] = await Promise.all([
-        supabase.from('qr_utm_generator_logs').select('*', { count: 'exact', head: true }),
-
-        supabase.from('qr_redirect_logs').select('*', { count: 'exact', head: true }),
+      // 2) Summary metrics (use count on views to avoid 1000-row ceiling)
+      const [
+        qrCodesRes,
+        redirectsRes,
+        campaignsRes,
+        citiesRes,
+      ] = await Promise.all([
+        supabase
+          .from('qr_utm_generator_logs')
+          .select('*', { count: 'exact', head: true }),
 
         supabase
           .from('qr_redirect_logs')
-          .select('utm_campaign', { distinct: true })
-          .not('utm_campaign', 'is', null)
-          .neq('utm_campaign', ''),
+          .select('*', { count: 'exact', head: true }),
 
         supabase
-          .from('qr_redirect_logs')
-          .select('city', { distinct: true })
-          .not('city', 'is', null)
-          .neq('city', ''),
+          .from('v_unique_campaigns')
+          .select('*', { count: 'exact', head: true }),
+
+        supabase
+          .from('v_unique_cities')
+          .select('*', { count: 'exact', head: true }),
       ]);
+
+      if (qrCodesRes.error) {
+        console.error('Error counting QR codes:', qrCodesRes.error);
+      }
+      if (redirectsRes.error) {
+        console.error('Error counting redirects:', redirectsRes.error);
+      }
+      if (campaignsRes.error) {
+        console.error('Error counting campaigns:', campaignsRes.error);
+      }
+      if (citiesRes.error) {
+        console.error('Error counting cities:', citiesRes.error);
+      }
 
       setMetrics({
         totalQrCodes: qrCodesRes.count || 0,
         totalRedirects: redirectsRes.count || 0,
-        totalCampaigns: campaignsRes.data?.length || 0,
-        totalCities: citiesRes.data?.length || 0,
+        totalCampaigns: campaignsRes.count || 0,
+        totalCities: citiesRes.count || 0,
       });
 
-      // Top campaigns from normalized view (stable + deduped)
+      // 3) Top campaigns from normalized view (unchanged)
       const { data: topCampaigns, error: topCampaignsError } = await supabase
         .from('campaign_counts_norm')
         .select('utm_campaign:campaign_norm, count')

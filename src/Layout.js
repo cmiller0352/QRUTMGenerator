@@ -12,7 +12,9 @@ const Layout = () => {
   const { user, profile } = useUser();
 
   // Routes that should hide the site chrome (tabs + welcome + auth buttons)
-  const hideChrome = location.pathname.startsWith('/turkeydrop');
+  const hideChrome =
+    location.pathname.startsWith('/turkeydrop') ||
+    location.pathname.startsWith('/whitechristmas');
 
   const tabs = ['/', '/history', '/analytics', '/dashboard'];
   const currentTab = tabs.includes(location.pathname) ? tabs.indexOf(location.pathname) : 0;

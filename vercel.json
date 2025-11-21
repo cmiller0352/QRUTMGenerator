@@ -15,6 +15,15 @@
     },
 
     {
+      "source": "/whitechristmas",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/whitechristmas/thankyou",
+      "destination": "/index.html"
+    },
+
+    {
       "source": "/r/:shortCode",
       "destination": "/api/redirect/:shortCode"
     },

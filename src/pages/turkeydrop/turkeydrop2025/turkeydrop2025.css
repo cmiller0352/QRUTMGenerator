@@ -299,3 +299,21 @@
 /* optional: subtler bullet color for sponsor lists */
 .tdp-sponsor-list { color: inherit; }
 .tdp-sponsor-list li::marker { color: #5b5b5b; }
+
+.tdp-closed-box {
+  padding: 2rem;
+  border-radius: 12px;
+  background: #faf5f5;
+  border: 1px solid #e0dada;
+  margin-top: 2rem;
+}
+
+.tdp-closed-box h2 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.tdp-closed-box p {
+  margin: 0;
+  line-height: 1.4;
+}

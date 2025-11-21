@@ -15,7 +15,7 @@ const description =
 const image = "https://www.roadhome.io/og/turkeydrop2025-banner.png"; // update when ready
 
 // Flip this to true when you are ready to close online registrations
-const REGISTRATION_CLOSED = true;
+const REGISTRATION_CLOSED = false;
 
 export default function TurkeyDrop2025() {
   const [counts, setCounts] = useState({

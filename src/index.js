@@ -19,6 +19,8 @@ import TurkeyDashboard from './pages/TurkeyDashboard'
 // 👇 NEW: RSVP page route (public)
 import TurkeyDropRSVP from './pages/turkeydrop';
 import TurkeyDrop2025 from './pages/turkeydrop/turkeydrop2025';
+import WhiteChristmas from './pages/whitechristmas/index.jsx';
+import WhiteChristmasThankYou from './pages/whitechristmas/thankyou.jsx';
 
 const Root = () => (
   <React.StrictMode>
@@ -68,6 +70,11 @@ const Root = () => (
               <Route path="turkeydrop" element={<TurkeyDropRSVP />} />
               <Route path="turkeydrop2025/thankyou" element={<ThankYouPage />} />
               <Route path="/turkeydrop2025" element={<TurkeyDrop2025 />} />
+              <Route path="/whitechristmas" element={<WhiteChristmas />} />
+              <Route
+                path="/whitechristmas/thankyou"
+                element={<WhiteChristmasThankYou />}
+              />
               <Route path="/admin/rsvps" element={<TurkeyDashboard />} />
 
               {/* Auth */}

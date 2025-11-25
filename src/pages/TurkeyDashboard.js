@@ -66,8 +66,9 @@ function Toggle({ label, value, onChange }) {
 }
 
 export default function TurkeyDashboard() {
-  // filters
-  const [eventFilter, setEventFilter] = useState("");
+  // events + filters
+  const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
@@ -89,7 +90,9 @@ export default function TurkeyDashboard() {
   const [slotCapacities, setSlotCapacities] = useState({});
   const [clientCounts, setClientCounts] = useState({ yes: 0, no: 0, total: 0 });
   const [contactCounts, setContactCounts] = useState({ yes: 0, no: 0, total: 0 });
-  const [showInsights, setShowInsights] = useState(false);
+  const [familyCount, setFamilyCount] = useState(0);
+  const [ticketsTotal, setTicketsTotal] = useState(0);
+  const [insightsCollapsed, setInsightsCollapsed] = useState(false);
 
   // selection & modals
   const [selectedId, setSelectedId] = useState(null);
@@ -109,13 +112,23 @@ export default function TurkeyDashboard() {
     [toDate]
   );
 
+  const selectedEvent = useMemo(
+    () => events.find((e) => e.id === selectedEventId) || null,
+    [events, selectedEventId]
+  );
+  const selectedEventName = selectedEvent?.name || "";
+  const eventIdentifier = (selectedEventName || "").toLowerCase().trim();
+  const isTurkeyEvent = eventIdentifier.includes("turkey drop");
+  const isWhiteChristmasEvent = eventIdentifier.includes("white christmas");
+
   const buildQuery = (selectCols = "*") => {
+    if (!selectedEventId) return null;
     let q = supabase
       .from(VIEW)
       .select(selectCols, { count: "exact" })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .eq("event_id", selectedEventId);
 
-    if (eventFilter?.trim()) q = q.ilike("event_name", `%${eventFilter.trim()}%`);
     if (fromISO) q = q.gte("created_at", fromISO);
     if (toISO) q = q.lte("created_at", toISO);
 
@@ -156,15 +169,48 @@ export default function TurkeyDashboard() {
     return q;
   };
 
+  useEffect(() => {
+    let isMounted = true;
+    async function loadEvents() {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date_utc")
+        .order("date_utc", { ascending: false });
+
+      if (error) {
+        console.error("Error loading events:", error);
+        if (!isMounted) return;
+        setEvents([]);
+        return;
+      }
+
+      if (!isMounted) return;
+      console.log("Admin dashboard events:", data); // temporary debug
+      setEvents(data || []);
+    }
+    loadEvents();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // fetch table
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!selectedEventId) {
+        setRows([]);
+        setTotal(0);
+        setSelectedId(null);
+        return;
+      }
       setLoading(true);
       try {
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
-        const { data, error, count } = await buildQuery("*").range(from, to);
+        const query = buildQuery("*");
+        if (!query) return;
+        const { data, error, count } = await query.range(from, to);
         if (error) throw error;
         if (!cancelled) {
           setRows(data ?? []);
@@ -182,7 +228,7 @@ export default function TurkeyDashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    eventFilter,
+    selectedEventId,
     fromISO,
     toISO,
     search,
@@ -196,7 +242,7 @@ export default function TurkeyDashboard() {
   useEffect(() => {
     setPage(0);
   }, [
-    eventFilter,
+    selectedEventId,
     fromISO,
     toISO,
     search,
@@ -206,19 +252,36 @@ export default function TurkeyDashboard() {
     contactFilter,
   ]);
 
+  useEffect(() => {
+    setInsightsCollapsed(false);
+  }, [selectedEventId]);
+
   // fetch KPIs (includes zero-count slots)
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!selectedEventId) {
+        if (!cancelled) {
+          setBranchCounts({});
+          setEraCounts({});
+          setSlotCounts({});
+          setSlotCapacities({});
+          setClientCounts({ yes: 0, no: 0, total: 0 });
+          setContactCounts({ yes: 0, no: 0, total: 0 });
+          setFamilyCount(0);
+          setTicketsTotal(0);
+        }
+        return;
+      }
       try {
-        // Include event_id so we can merge in pickup_slots for zero-count display.
-        const { data, error } = await buildQuery(
-          "event_id, branch_of_service, era, era_list, slot_label, slot_capacity, rhp_client_status, peer_contact_opt_in"
+        const query = buildQuery(
+          "event_id, branch_of_service, era, era_list, slot_label, slot_capacity, rhp_client_status, peer_contact_opt_in, family_size"
         );
+        if (!query) return;
+        const { data, error } = await query;
         if (error) throw error;
         const list = data || [];
 
-        // branch counts
         const bmap = {};
         for (const r of list) {
           const arr = Array.isArray(r.branch_of_service)
@@ -233,7 +296,6 @@ export default function TurkeyDashboard() {
           }
         }
 
-        // era counts
         const emap = {};
         for (const r of list) {
           const items =
@@ -249,7 +311,6 @@ export default function TurkeyDashboard() {
           }
         }
 
-        // slot counts + capacity from RSVPs
         const smap = {};
         const cap = {};
         for (const r of list) {
@@ -259,7 +320,6 @@ export default function TurkeyDashboard() {
           if (r.slot_capacity != null) cap[label] = r.slot_capacity;
         }
 
-        // client/contact counts
         let cYes = 0,
           cNo = 0,
           pYes = 0,
@@ -271,38 +331,32 @@ export default function TurkeyDashboard() {
           else if (r.peer_contact_opt_in === false) pNo++;
         }
 
-        // --- Merge in pickup_slots so zero-count/new slots appear ---
-        try {
-          // event IDs present in the current RSVP result
-          let targetEventIds = Array.from(
-            new Set((list || []).map((r) => r.event_id).filter(Boolean))
-          );
-
-          // If user filtered by event name and there are 0 RSVPs (hence no IDs), resolve IDs by name
-          if (!targetEventIds.length && eventFilter?.trim()) {
-            const { data: evs } = await supabase
-              .from("events")
-              .select("id, name")
-              .ilike("name", `%${eventFilter.trim()}%`);
-            targetEventIds = Array.from(new Set((evs || []).map((e) => e.id)));
-          }
-
-          if (targetEventIds.length) {
+        if (selectedEventId) {
+          try {
             const { data: slotsList } = await supabase
               .from("pickup_slots")
               .select("label, capacity, event_id")
-              .in("event_id", targetEventIds);
+              .eq("event_id", selectedEventId);
 
             (slotsList || []).forEach((s) => {
               const label = (s.label || "").trim();
               if (!label) return;
-              if (!(label in smap)) smap[label] = 0; // show with 0
+              if (!(label in smap)) smap[label] = 0;
               if (cap[label] == null) cap[label] = s.capacity ?? FALLBACK_SLOT_CAPACITY;
             });
+          } catch {
+            // ignore merge failures; dashboard still renders from RSVPs
           }
-        } catch {
-          // ignore merge failures; dashboard still renders from RSVPs
         }
+
+        const tickets = list.reduce((sum, r) => {
+          const ticketsCountField = Number(r.family_size); // family_size represents tickets claimed
+          const normalizedCount =
+            Number.isFinite(ticketsCountField) && ticketsCountField > 0
+              ? ticketsCountField
+              : 1;
+          return sum + normalizedCount;
+        }, 0);
 
         if (!cancelled) {
           setBranchCounts(bmap);
@@ -311,9 +365,20 @@ export default function TurkeyDashboard() {
           setSlotCapacities(cap);
           setClientCounts({ yes: cYes, no: cNo, total: list.length });
           setContactCounts({ yes: pYes, no: pNo, total: list.length });
+          setFamilyCount(list.length);
+          setTicketsTotal(tickets);
         }
       } catch {
-        // ignore
+        if (!cancelled) {
+          setBranchCounts({});
+          setEraCounts({});
+          setSlotCounts({});
+          setSlotCapacities({});
+          setClientCounts({ yes: 0, no: 0, total: 0 });
+          setContactCounts({ yes: 0, no: 0, total: 0 });
+          setFamilyCount(0);
+          setTicketsTotal(0);
+        }
       }
     })();
     return () => {
@@ -321,7 +386,7 @@ export default function TurkeyDashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    eventFilter,
+    selectedEventId,
     fromISO,
     toISO,
     search,
@@ -335,7 +400,12 @@ export default function TurkeyDashboard() {
   const exportAll = async () => {
     try {
       setLoading(true);
-      const { data, error } = await buildQuery("*");
+      const query = buildQuery("*");
+      if (!query) {
+        alert("Select an event to export.");
+        return;
+      }
+      const { data, error } = await query;
       if (error) throw error;
       const list = data ?? [];
 
@@ -482,7 +552,6 @@ export default function TurkeyDashboard() {
     setClientFilter("");
     setContactFilter("");
     setSearch("");
-    setEventFilter("");
     setFromDate("");
     setToDate("");
   };
@@ -493,6 +562,76 @@ export default function TurkeyDashboard() {
   const contactPct = contactCounts.total
     ? Math.round((contactCounts.yes / contactCounts.total) * 100)
     : 0;
+  const slotSummaries = useMemo(() => {
+    const countKeys = Object.keys(slotCounts || {});
+    const capacityKeys = Object.keys(slotCapacities || {});
+    if (countKeys.length === 0 && capacityKeys.length === 0) return [];
+    const knownLabels = new Set([...countKeys, ...capacityKeys]);
+    const ordered = SLOT_ORDER.filter((label) => knownLabels.has(label));
+    const extras = Array.from(knownLabels)
+      .filter((label) => !SLOT_ORDER.includes(label))
+      .sort((a, b) => a.localeCompare(b));
+    const labels = [...ordered, ...extras];
+    return labels.map((label) => {
+      const count = slotCounts[label] || 0;
+      const capacity = slotCapacities[label] ?? FALLBACK_SLOT_CAPACITY;
+      const percent =
+        capacity > 0 ? Math.min(100, Math.round((count / capacity) * 100)) : 0;
+      return { label, count, capacity, percent };
+    });
+  }, [slotCounts, slotCapacities]);
+  const ringCards = (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        gap: 16,
+      }}
+    >
+      <RingCard
+        title="RHP Clients"
+        numerator={clientCounts.yes}
+        denominator={clientCounts.total}
+        percent={clientPct}
+        onSliceClick={() => setClientFilter((cur) => (cur === "yes" ? "" : "yes"))}
+        onCenterClick={() => setClientFilter("")}
+        active={clientFilter === "yes"}
+      />
+      <RingCard
+        title="Peer Contact Opt-In"
+        numerator={contactCounts.yes}
+        denominator={contactCounts.total}
+        percent={contactPct}
+        onSliceClick={() => setContactFilter((cur) => (cur === "yes" ? "" : "yes"))}
+        onCenterClick={() => setContactFilter("")}
+        active={contactFilter === "yes"}
+      />
+    </div>
+  );
+  const branchEraBreakdowns = (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+        gap: 16,
+      }}
+    >
+      <BreakdownCard title="Branch of Service">
+        <Chips
+          map={branchCounts}
+          onChipClick={(label) =>
+            setBranchFilter((cur) => (cur === label ? "" : label))
+          }
+        />
+      </BreakdownCard>
+      <BreakdownCard title="Era of Service">
+        <Chips
+          map={eraCounts}
+          onChipClick={(label) => setEraFilter((cur) => (cur === label ? "" : label))}
+        />
+      </BreakdownCard>
+    </div>
+  );
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
@@ -500,25 +639,51 @@ export default function TurkeyDashboard() {
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: THEME.green }}>
           RSVP Admin
         </h1>
-        <div style={{ color: "#6b7280" }}>Search runs server-side across all pages.</div>
+        <div style={{ color: "#6b7280", marginTop: 4 }}>
+          {selectedEventName
+            ? `Viewing RSVPs for: ${selectedEventName}`
+            : "Select an event to begin."}
+        </div>
+        <div style={{ color: "#6b7280", fontSize: 13 }}>
+          Search runs server-side across all pages.
+        </div>
       </header>
 
-      {/* Filters / Export / Insights toggle */}
+      {/* Filters / Export */}
       <section style={card}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.1fr 0.8fr 0.8fr 1.6fr auto",
+            gridTemplateColumns: "1.4fr 0.8fr 0.8fr 1.6fr auto",
             gap: 12,
             alignItems: "end",
           }}
         >
-          <LabeledInput
-            label="Event (contains)"
-            placeholder="e.g., Turkey Drop"
-            value={eventFilter}
-            onChange={(e) => setEventFilter(e.target.value)}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>Event</label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value || "");
+                setPage(0);
+                setSelectedId(null);
+              }}
+              style={{
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                padding: "8px 10px",
+                fontSize: 14,
+                outline: "none",
+              }}
+            >
+              <option value="">Select an event…</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <LabeledInput
             label="From date"
             type="date"
@@ -558,266 +723,237 @@ export default function TurkeyDashboard() {
             eraFilter ||
             clientFilter ||
             contactFilter ||
-            eventFilter ||
             fromDate ||
             toDate ||
             search) && (
             <Pill kind="reset" onClear={clearAllFilters} label="Clear all filters" />
           )}
         </div>
+      </section>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 16,
-          }}
-        >
-          <div style={{ fontWeight: 800, color: THEME.black }}>Insights</div>
-          <Button variant="ghost" onClick={() => setShowInsights((s) => !s)}>
-            {showInsights ? "Hide" : "Show"}
-          </Button>
-        </div>
-
-        {showInsights && (
-          <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
+      {!selectedEventId ? (
+        <section style={card}>
+          <div style={{ color: "#6b7280", fontWeight: 600 }}>
+            Select an event to view RSVPs.
+          </div>
+        </section>
+      ) : (
+        <>
+          <section style={card}>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-                gap: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
               }}
             >
-              <RingCard
-                title="RHP Clients"
-                numerator={clientCounts.yes}
-                denominator={clientCounts.total}
-                percent={clientPct}
-                onSliceClick={() => {
-                  setClientFilter((p) => (p === "yes" ? "" : "yes"));
-                  setSearch("");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                onCenterClick={() => setClientFilter("")}
-                active={clientFilter === "yes"}
-              />
-              <RingCard
-                title="Peer Contact Opt-In"
-                numerator={contactCounts.yes}
-                denominator={contactCounts.total}
-                percent={contactPct}
-                onSliceClick={() => {
-                  setContactFilter((p) => (p === "yes" ? "" : "yes"));
-                  setSearch("");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                onCenterClick={() => setContactFilter("")}
-                active={contactFilter === "yes"}
-              />
+              <div style={{ fontWeight: 800, fontSize: 18, color: THEME.green }}>Insights</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {selectedEventName && (
+                  <div style={{ color: "#6b7280", fontSize: 13 }}>
+                    Showing data for {selectedEventName}
+                  </div>
+                )}
+                <Button
+                  variant="ghost"
+                  onClick={() => setInsightsCollapsed((prev) => !prev)}
+                  style={{ minWidth: 120 }}
+                >
+                  {insightsCollapsed ? "Show insights" : "Hide insights"}
+                </Button>
+              </div>
             </div>
 
-            <BreakdownCard title="Branch of Service">
-              <Chips
-                map={branchCounts}
-                onChipClick={(label) => {
-                  setBranchFilter((prev) => (prev === label ? "" : label));
-                  setSearch("");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-            </BreakdownCard>
-
-            <BreakdownCard title="Era of Service">
-              <Chips
-                map={eraCounts}
-                onChipClick={(label) => {
-                  setEraFilter((prev) => (prev === label ? "" : label));
-                  setSearch("");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-            </BreakdownCard>
-
-            <BreakdownCard title="Slot Utilization">
-              {Object.keys(slotCounts).length === 0 ? (
-                <div style={{ color: "#6b7280" }}>No data</div>
-              ) : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  {Object.keys(slotCounts)
-                    .sort((a, b) => {
-                      const ia = SLOT_ORDER.indexOf(a);
-                      const ib = SLOT_ORDER.indexOf(b);
-                      if (ia >= 0 && ib >= 0) return ia - ib;
-                      if (ia >= 0) return -1;
-                      if (ib >= 0) return 1;
-                      return a.localeCompare(b);
-                    })
-                    .map((slot) => {
-                      const count = slotCounts[slot] || 0;
-                      const cap = slotCapacities[slot] ?? FALLBACK_SLOT_CAPACITY;
-                      const pct = Math.min(
-                        100,
-                        Math.round((count / (cap || FALLBACK_SLOT_CAPACITY)) * 100)
-                      );
-                      return (
-                        <div
-                          key={slot}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "220px 1fr 90px",
-                            gap: 10,
-                            alignItems: "center",
-                          }}
-                        >
-                          <div style={{ whiteSpace: "nowrap" }}>{slot}</div>
-                          <Progress value={pct} />
-                          <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                            <strong>{count}</strong> / {cap || FALLBACK_SLOT_CAPACITY} ({pct}
-                            %)
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-            </BreakdownCard>
-          </div>
-        )}
-      </section>
-
-      {/* Toolbar + pager + table */}
-      <section style={card}>
-        <div style={toolbarRow}>
-          <div style={{ color: "#374151" }}>
-            <strong>Page {page + 1}</strong> of{" "}
-            <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong> •{" "}
-            <strong>{total}</strong> total
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Button
-              variant="ghost"
-              disabled={page === 0 || loading}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              Prev
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={loading || page + 1 >= Math.max(1, Math.ceil(total / PAGE_SIZE))}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-            {selectedRow && (
+            {insightsCollapsed ? (
+              <div style={{ color: "#6b7280", fontStyle: "italic" }}>
+                Insights collapsed. Use the toggle above to expand.
+              </div>
+            ) : isTurkeyEvent ? (
               <>
-                <Button variant="ghost" onClick={() => openEdit(selectedRow)}>
-                  Edit
-                </Button>
-                <Button variant="danger" onClick={() => openDelete(selectedRow)}>
-                  Delete
-                </Button>
+                {ringCards}
+                {branchEraBreakdowns}
+                <BreakdownCard title="Slot Utilization">
+                  {slotSummaries.length === 0 ? (
+                    <div style={{ color: "#6b7280" }}>No slot data</div>
+                  ) : (
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {slotSummaries.map(({ label, count, capacity, percent }) => (
+                        <div key={label} style={{ display: "grid", gap: 6 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <span>{label}</span>
+                            <span>
+                              {count} / {capacity}
+                            </span>
+                          </div>
+                          <Progress value={percent} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </BreakdownCard>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 16,
+                    marginBottom: 16,
+                  }}
+                >
+                  <StatCard
+                    title={isWhiteChristmasEvent ? "Families registered" : "Families"}
+                    value={familyCount}
+                  />
+                  <StatCard title="Tickets claimed" value={ticketsTotal} />
+                </div>
+                {ringCards}
+                {branchEraBreakdowns}
               </>
             )}
-          </div>
-        </div>
+          </section>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ position: "sticky", top: 0, background: THEME.white, zIndex: 1 }}>
-              <tr>
-                {[
-                  "Created",
-                  "Event",
-                  "Slot",
-                  "Name",
-                  "Email",
-                  "Phone",
-                  "Status",
-                  "Branch(es)",
-                  "Era / Eras",
-                  "City/State",
-                ].map((h) => (
-                  <th key={h} style={th}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={10} style={{ padding: 16 }}>
-                    Loading…
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={10} style={{ padding: 16 }}>
-                    No results
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => {
-                  const isSel = selectedId === r.id;
-                  const green = !!r.peer_contact_opt_in;
-                  return (
-                    <tr
-                      key={r.id}
-                      onClick={() => onRowClick(r.id)}
-                      style={{
-                        borderBottom: "1px solid #f3f4f6",
-                        background: isSel ? "#DCF7E6" : green ? THEME.rowHighlight : "#fff",
-                        cursor: "pointer",
-                        outline: isSel ? `2px solid ${THEME.green}` : "none",
-                      }}
-                    >
-                      <td style={td}>{fmtDate(r.created_at)}</td>
-                      <td style={td}>{r.event_name}</td>
-                      <td style={td}>{r.slot_label}</td>
-                      <td style={td}>
-                        <strong>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</strong>
+          <section style={card}>
+            <div style={toolbarRow}>
+              <div style={{ color: "#374151" }}>
+                <strong>Page {page + 1}</strong> of{" "}
+                <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong> •{" "}
+                <strong>{total}</strong> total
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button
+                  variant="ghost"
+                  disabled={page === 0 || loading}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={loading || page + 1 >= Math.max(1, Math.ceil(total / PAGE_SIZE))}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+                {selectedRow && (
+                  <>
+                    <Button variant="ghost" onClick={() => openEdit(selectedRow)}>
+                      Edit
+                    </Button>
+                    <Button variant="danger" onClick={() => openDelete(selectedRow)}>
+                      Delete
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ position: "sticky", top: 0, background: THEME.white, zIndex: 1 }}>
+                  <tr>
+                    {[
+                      "Created",
+                      "Event",
+                      "Slot",
+                      "Name",
+                      "Email",
+                      "Phone",
+                      "Status",
+                      "Branch(es)",
+                      "Era / Eras",
+                      "City/State",
+                    ].map((h) => (
+                      <th key={h} style={th}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={10} style={{ padding: 16 }}>
+                        Loading…
                       </td>
-                      <td style={td}>{r.email}</td>
-                      <td style={td}>{r.phone}</td>
-                      <td style={td}>{r.status}</td>
-                      <td style={td}>
-                        {Array.isArray(r.branch_of_service)
-                          ? r.branch_of_service.join(", ")
-                          : r.branch_of_service ?? ""}
-                      </td>
-                      <td style={td}>
-                        <div>{r.era}</div>
-                        <div style={{ color: "#6b7280", fontSize: 12 }}>
-                          {Array.isArray(r.era_list)
-                            ? r.era_list.join(", ")
-                            : r.era_list ?? ""}
-                        </div>
-                      </td>
-                      <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ padding: 16 }}>
+                        No results
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((r) => {
+                      const isSel = selectedId === r.id;
+                      const green = !!r.peer_contact_opt_in;
+                      return (
+                        <tr
+                          key={r.id}
+                          onClick={() => onRowClick(r.id)}
+                          style={{
+                            borderBottom: "1px solid #f3f4f6",
+                            background: isSel ? "#DCF7E6" : green ? THEME.rowHighlight : "#fff",
+                            cursor: "pointer",
+                            outline: isSel ? `2px solid ${THEME.green}` : "none",
+                          }}
+                        >
+                          <td style={td}>{fmtDate(r.created_at)}</td>
+                          <td style={td}>{r.event_name}</td>
+                          <td style={td}>{r.slot_label}</td>
+                          <td style={td}>
+                            <strong>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</strong>
+                          </td>
+                          <td style={td}>{r.email}</td>
+                          <td style={td}>{r.phone}</td>
+                          <td style={td}>{r.status}</td>
+                          <td style={td}>
+                            {Array.isArray(r.branch_of_service)
+                              ? r.branch_of_service.join(", ")
+                              : r.branch_of_service ?? ""}
+                          </td>
+                          <td style={td}>
+                            <div>{r.era}</div>
+                            <div style={{ color: "#6b7280", fontSize: 12 }}>
+                              {Array.isArray(r.era_list)
+                                ? r.era_list.join(", ")
+                                : r.era_list ?? ""}
+                            </div>
+                          </td>
+                          <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        <div style={{ marginTop: 8, color: "#374151", fontSize: 12 }}>
-          <span
-            style={{
-              display: "inline-block",
-              width: 12,
-              height: 12,
-              background: THEME.rowHighlight,
-              border: "1px solid #cfe7db",
-              marginRight: 6,
-              verticalAlign: "middle",
-            }}
-          />
-          Rows highlighted in green requested a peer contact.
-        </div>
-      </section>
+            <div style={{ marginTop: 8, color: "#374151", fontSize: 12 }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 12,
+                  height: 12,
+                  background: THEME.rowHighlight,
+                  border: "1px solid #cfe7db",
+                  marginRight: 6,
+                  verticalAlign: "middle",
+                }}
+              />
+              Rows highlighted in green requested a peer contact.
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Edit Modal */}
       {editRow && (
@@ -965,7 +1101,7 @@ function LabeledInput({ label, ...props }) {
   );
 }
 
-function Button({ children, onClick, disabled, variant = "primary" }) {
+function Button({ children, onClick, disabled, variant = "primary", style }) {
   const styles = {
     primary: { background: THEME.green, color: "#fff", border: `1px solid ${THEME.black}` },
     secondary: { background: THEME.lightYellow, color: THEME.black, border: `1px solid ${THEME.yellow}` },
@@ -982,10 +1118,28 @@ function Button({ children, onClick, disabled, variant = "primary" }) {
         fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
         ...styles,
+        ...(style || {}),
       }}
     >
       {children}
     </button>
+  );
+}
+
+function StatCard({ title, value }) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${THEME.white}`,
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div style={{ color: "#6b7280", fontSize: 12, fontWeight: 600 }}>{title}</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: THEME.green }}>{value}</div>
+    </div>
   );
 }
 

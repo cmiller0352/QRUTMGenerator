@@ -5,6 +5,7 @@ import WhiteChristmasSlotPicker from "./slot-picker.jsx";
 import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
 import ShieldIMG from "../../assets/rhp-shield.png";
 import Shield from "../../assets/shield.png";
+import FamilyNightBanner from "../../assets/FamilyNight.png";
 
 // Registration cutoff: Dec 11, 2025 at 11:59 PM America/Chicago
 const registrationClosed = new Date() > new Date("2025-12-12T00:00:00-06:00");
@@ -104,7 +105,12 @@ export default function WhiteChristmasEvent() {
           aria-hidden="true"
         />
         <section className="tdp-left">
-          <div className="crumb">Family Holiday Night</div>
+          <img
+            src={FamilyNightBanner}
+            alt="Road Home Program Family Holiday Night"
+            className="tdp-banner"
+            style={{ marginTop: 0 }}
+          />
           <h1 className="tdp-title">{pageTitle}</h1>
           <p className="tdp-sub">{description}</p>
 
@@ -151,23 +157,28 @@ function ReservationCard() {
         Seats are limited for this shared dinner and theater experience.
         Reserve for your household in just a couple of minutes.
       </p>
+      <p className="tdp-sub" style={{ marginTop: 0 }}>
+        If you need to change plans, please let us know at least a week in
+        advance so another military family can enjoy this evening.
+      </p>
       {registrationClosed ? (
         <div className="tdp-closed-box">
           <h2>Registration is Closed</h2>
           <p>
             Registration for the Road Home Program Family Holiday Night has now
-            closed. If you have questions, please contact Modwene at{" "}
-            <a href="mailto:MODWENE_EMAIL">MODWENE_EMAIL</a> or call her office
-            at MODWENE_PHONE.
+            closed. If you have questions, please contact Modwene “Modie” Lavin
+            at <a href="mailto:Modwene_Lavin@rush.edu">Modwene_Lavin@rush.edu</a>{" "}
+            or call her office at{" "}
+            <a href="tel:13129428354">(312) 942-8354</a>.
           </p>
         </div>
       ) : (
         <WhiteChristmasSlotPicker eventId={EVENT_ID} />
       )}
       <p className="tdp-help">
-        Need assistance? Contact Modwene at{" "}
-        <a href="mailto:MODWENE_EMAIL">MODWENE_EMAIL</a> or call{" "}
-        <a href="tel:MODWENE_PHONE">MODWENE_PHONE</a>. You can also call{" "}
+        Need assistance? Contact Modie Lavin at{" "}
+        <a href="mailto:Modwene_Lavin@rush.edu">Modwene_Lavin@rush.edu</a> or call{" "}
+        <a href="tel:13129428354">(312) 942-8354</a>. You can also call{" "}
         <a href="tel:13129428387">(312) 942-8387 (VETS)</a> and the Road Home
         Program team can help you RSVP.
       </p>

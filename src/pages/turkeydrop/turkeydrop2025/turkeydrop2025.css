@@ -149,7 +149,7 @@
 .field-hint{ margin:4px 0 8px; color:#6b675f; font-size:12.5px; }
 
 /* Error ring for chip/slot sections (does not shift layout) */
-.tdp-section { border-radius: 14px; }
+.tdp-section { border-radius: 14px; margin-top: 18px; }
 .tdp-err-ring { outline: 2px solid #d33; outline-offset: 2px; border-radius: 14px; }
 
 /* Sponsors – switch to masonry columns on wider screens */
@@ -316,4 +316,29 @@
 .tdp-closed-box p {
   margin: 0;
   line-height: 1.4;
+}
+
+.tdp-row--location{
+  margin-top: 18px;
+}
+.tdp-row--status{
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap:12px;
+  margin: 18px 0 14px;
+}
+.tdp-status select{
+  max-width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+}
+.tdp-label-hint{
+  font-weight: 400;
+  color: var(--muted);
+  font-size: .9em;
+}
+.tdp-section + .tdp-toggles{
+  margin-top: 24px;
+}
+.tdp-section + .tdp-section{
+  margin-top: 22px;
 }

@@ -6,27 +6,15 @@ const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 
 // Branch & Era options (UI)
 const BRANCHES = [
-  "Army","Army Reserve","Army National Guard",
-  "Marine Corps","Marine Corps Reserve",
-  "Navy","Navy Reserve",
-  "Air Force","Air Force Reserve","Air National Guard",
-  "Coast Guard","Coast Guard Reserve",
-  "Space Force"
+  "Army",
+  "Army National Guard",
+  "Navy",
+  "Marine Corps",
+  "Air Force",
+  "Coast Guard",
+  "Space Force",
 ];
-const ERAS = [
-  "WWII",
-  "Korean War Era",
-  "Korean War",
-  "Vietnam War Era",
-  "Vietnam",
-  "Cold War",
-  "Persian Gulf War",
-  "Persian Gulf War/Desert Storm Era",
-  "Pre-9/11",
-  "Post-9/11",
-  "OIF/OEF/OND",
-  "Other",
-];
+const ERAS = ["Pre-9/11", "Post-9/11"];
 
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida",
@@ -39,7 +27,14 @@ const US_STATES = [
 
 const FAMILY_CHOICES = [2, 3, 4, 5];
 
-function MultiChipGroup({ label, options, values, setValues, idPrefix }) {
+function MultiChipGroup({
+  label,
+  ariaLabel,
+  options,
+  values,
+  setValues,
+  idPrefix,
+}) {
   const toggle = (val) => {
     setValues((prev) =>
       prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
@@ -48,7 +43,13 @@ function MultiChipGroup({ label, options, values, setValues, idPrefix }) {
   return (
     <div className="tdp-field">
       <div className="tdp-chips-head">{label}</div>
-      <div className="chip-grid" role="group" aria-label={label}>
+      <div
+        className="chip-grid"
+        role="group"
+        aria-label={
+          ariaLabel || (typeof label === "string" ? label : undefined)
+        }
+      >
         {options.map((opt) => {
           const pressed = values.includes(opt);
           return (
@@ -72,7 +73,6 @@ function MultiChipGroup({ label, options, values, setValues, idPrefix }) {
 export default function WhiteChristmasSlotPicker({ eventId }) {
   const [slot, setSlot] = useState(null);
   const [slotId, setSlotId] = useState("");
-  const [loadingSlot, setLoadingSlot] = useState(false);
 
   // Fields
   const [firstName, setFirstName] = useState("");
@@ -117,7 +117,6 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
   };
 
   const fetchSlot = useCallback(async () => {
-    setLoadingSlot(true);
     const { data } = await supabase
       .from("pickup_slots")
       .select("id,label,capacity,taken,start_utc")
@@ -130,7 +129,6 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
       setSlot(null);
       setSlotId("");
     }
-    setLoadingSlot(false);
   }, [eventId]);
 
   useEffect(() => {
@@ -450,10 +448,10 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
           <input value={address2} onChange={(e) => setAddress2(e.target.value)} />
         </label>
 
-        <div className="tdp-row">
-          <label data-field="city">
-            City*
-            <input
+      <div className="tdp-row tdp-row--location">
+        <label data-field="city">
+          City*
+          <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
               aria-invalid={!!errors.city}
@@ -479,13 +477,13 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
           </label>
         </div>
 
-        <div className="tdp-row">
-          <label data-field="status">
-            Status*
-            <select
-              ref={statusSelectRef}
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
+      <div className="tdp-row tdp-row--status">
+        <label data-field="status" className="tdp-status">
+          Status*
+          <select
+            ref={statusSelectRef}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
               aria-invalid={!!errors.status}
             >
               <option>Veteran</option>
@@ -506,28 +504,29 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
                 </option>
               ))}
             </select>
-            <div className="field-hint">
-              {slot
-                ? `${remainingSeats} seats remaining`
-                : loadingSlot
-                ? "Checking availability…"
-                : "Seats limited"}
-            </div>
           </label>
         </div>
 
-        <div
-          data-field="eras"
-          className={`tdp-section ${errors.eras ? "tdp-err-ring" : ""}`}
-        >
-          <MultiChipGroup
-            label="Service Era (select all that apply)*"
-            options={ERAS}
-            values={eras}
-            setValues={setEras}
-            idPrefix="era"
-          />
-        </div>
+      <div
+        data-field="eras"
+        className={`tdp-section ${errors.eras ? "tdp-err-ring" : ""}`}
+      >
+        <MultiChipGroup
+          label={
+            <>
+              <strong>Service Era</strong>{" "}
+              <span className="tdp-label-hint">
+                (select all that apply)*
+              </span>
+            </>
+          }
+          ariaLabel="Service Era (select all that apply)"
+          options={ERAS}
+          values={eras}
+          setValues={setEras}
+          idPrefix="era"
+        />
+      </div>
         {eras.includes("Other") && (
           <label data-field="eraOther" className="tdp-chip-note">
             If “Other”, please describe
@@ -539,18 +538,26 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
           </label>
         )}
 
-        <div
-          data-field="branches"
-          className={`tdp-section ${errors.branches ? "tdp-err-ring" : ""}`}
-        >
-          <MultiChipGroup
-            label="Branch of Service (select all that apply)*"
-            options={BRANCHES}
-            values={branches}
-            setValues={setBranches}
-            idPrefix="branch"
-          />
-        </div>
+      <div
+        data-field="branches"
+        className={`tdp-section ${errors.branches ? "tdp-err-ring" : ""}`}
+      >
+        <MultiChipGroup
+          label={
+            <>
+              <strong>Branch of Service</strong>{" "}
+              <span className="tdp-label-hint">
+                (select all that apply)*
+              </span>
+            </>
+          }
+          ariaLabel="Branch of Service (select all that apply)"
+          options={BRANCHES}
+          values={branches}
+          setValues={setBranches}
+          idPrefix="branch"
+        />
+      </div>
 
         <div className="tdp-toggles" data-field="toggles">
           <button

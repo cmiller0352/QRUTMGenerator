@@ -2,6 +2,8 @@
 import React from "react";
 import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
 
+const EVENT_DATE = "Thursday, December 18, 2025";
+
 export default function WhiteChristmasThankYou() {
   return (
     <main
@@ -19,6 +21,10 @@ export default function WhiteChristmasThankYou() {
             4:30 PM for dinner before we walk to the Paramount Aurora Theatre
             for White Christmas.
           </p>
+          <div className="tdp-block" style={{ marginTop: 20 }}>
+            <h3>Event date</h3>
+            <p style={{ margin: 0, fontWeight: 600 }}>{EVENT_DATE}</p>
+          </div>
           <p>
             <strong>Don&apos;t be a grinch and no-show.</strong>
           </p>

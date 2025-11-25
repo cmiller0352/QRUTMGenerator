@@ -12,6 +12,7 @@ const registrationClosed = new Date() > new Date("2025-12-12T00:00:00-06:00");
 const EVENT_ID = "white-christmas-2025";
 const pageUrl = "https://www.roadhome.io/whitechristmas";
 const pageTitle = "Road Home Program Family Holiday Night";
+const EVENT_DATE = "Thursday, December 18, 2025";
 const description =
   "Join the Road Home Program for a family-focused holiday evening in Aurora, the City of Lights. We invite veterans and their families to share a warm seasonal gathering with dinner at Giardino's Trattoria and Pizzeria at 4:30 PM, followed by a short walk to the Paramount Aurora Theatre for a performance of White Christmas.";
 const image = "https://www.roadhome.io/og/whitechristmas-banner.png"; // update when ready
@@ -112,6 +113,12 @@ export default function WhiteChristmasEvent() {
             style={{ marginTop: 0 }}
           />
           <h1 className="tdp-title">{pageTitle}</h1>
+          <p
+            className="tdp-sub"
+            style={{ margin: "8px 0", fontWeight: 700, color: "#082d18" }}
+          >
+            {EVENT_DATE}
+          </p>
           <p className="tdp-sub">{description}</p>
 
           {!REGISTRATION_CLOSED && (
@@ -161,6 +168,10 @@ function ReservationCard() {
         If you need to change plans, please let us know at least a week in
         advance so another military family can enjoy this evening.
       </p>
+      <div className="tdp-block" style={{ marginTop: 16 }}>
+        <h3>Event date</h3>
+        <p style={{ margin: 0, fontWeight: 600 }}>{EVENT_DATE}</p>
+      </div>
       {registrationClosed ? (
         <div className="tdp-closed-box">
           <h2>Registration is Closed</h2>
@@ -195,11 +206,15 @@ function RegistrationClosedCard() {
         Online RSVPs for the Road Home Program Family Holiday Night are now
         closed while we finalize the guest list.
       </p>
+      <p className="tdp-sub" style={{ marginTop: 0, fontWeight: 600 }}>
+        Event date: {EVENT_DATE}
+      </p>
 
       <div className="tdp-block">
         <h3>Event details</h3>
         <p>
-          Dinner at Giardino&apos;s Trattoria and Pizzeria begins at 4:30 PM,
+          Our celebration is on {EVENT_DATE}. Dinner at Giardino&apos;s Trattoria
+          and Pizzeria begins at 4:30 PM,
           followed by a short walk to the Paramount Aurora Theatre for White
           Christmas. Please refer to your confirmation email for arrival
           instructions.

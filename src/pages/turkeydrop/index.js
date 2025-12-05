@@ -134,12 +134,24 @@ export default function TurkeyDropRSVP() {
     const load = async () => {
       setLoadingSlots(true);
       const { data, error } = await supabase
-        .from("pickup_slots")
-        .select("id,label,capacity,taken,start_utc")
-        .eq("event_id", EVENT_ID)
-        .order("start_utc", { ascending: true });
-      if (error) setMessage(`❌ Could not load pickup windows: ${error.message}`);
-      else setSlots(data || []);
+        .from("v_slot_capacity")
+        .select("slot_id,label,capacity,seats_taken,seats_remaining,is_full")
+        .eq("event_id", EVENT_ID);
+      if (error) {
+        setMessage(`❌ Could not load pickup windows: ${error.message}`);
+      } else {
+        const normalized = (data || [])
+          .map((row) => ({
+            id: row.slot_id || row.id,
+            label: row.label,
+            capacity: row.capacity,
+            seats_taken: row.seats_taken,
+            seats_remaining: row.seats_remaining,
+            is_full: row.is_full,
+          }))
+          .sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+        setSlots(normalized);
+      }
       setLoadingSlots(false);
     };
     load();
@@ -182,8 +194,12 @@ export default function TurkeyDropRSVP() {
   // helpers
   const isEmail = (v) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
   const remaining = (s) => {
-    const cap = typeof s.capacity === "number" ? s.capacity : 0;
-    return Math.max(0, cap - (s.taken || 0));
+    if (!s) return 0;
+    const rem = Number(s.seats_remaining);
+    if (Number.isFinite(rem)) return Math.max(0, rem);
+    const cap = Number(s.capacity) || 0;
+    const taken = Number(s.seats_taken) || 0;
+    return Math.max(0, cap - taken);
   };
 
   const toggleInArray = (arrSetter, arr, val) => {
@@ -431,9 +447,10 @@ export default function TurkeyDropRSVP() {
             <option value="" disabled>{loadingSlots ? "Loading…" : "Select a window"}</option>
             {slots.map((s)=>{
               const rem = remaining(s);
+              const disabled = s.is_full || rem<=0;
               return (
-                <option key={s.id} value={s.id} disabled={rem<=0}>
-                  {s.label} {rem<=0 ? "— FULL" : `— ${rem} left`}
+                <option key={s.id} value={s.id} disabled={disabled}>
+                  {s.label} {disabled ? "— FULL" : `— ${rem} left`}
                 </option>
               );
             })}

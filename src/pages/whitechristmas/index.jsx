@@ -33,8 +33,8 @@ export default function WhiteChristmasEvent() {
 
   const computeCountsFromSlots = useCallback(async () => {
     const { data, error } = await supabase
-      .from("pickup_slots")
-      .select("capacity,taken")
+      .from("v_slot_capacity")
+      .select("capacity,seats_taken,seats_remaining")
       .eq("event_id", EVENT_ID);
 
     if (error || !data) {
@@ -45,10 +45,13 @@ export default function WhiteChristmasEvent() {
       0
     );
     const reserved = data.reduce(
-      (a, r) => a + (Number(r.taken) || 0),
+      (a, r) => a + (Number(r.seats_taken) || 0),
       0
     );
-    const remaining = Math.max(0, total_capacity - reserved);
+    const remaining = data.reduce(
+      (a, r) => a + (Number(r.seats_remaining) || 0),
+      0
+    );
     return { reserved, remaining, total_capacity };
   }, []);
 
@@ -69,7 +72,7 @@ export default function WhiteChristmasEvent() {
       return;
     }
 
-    // Fallback: compute live from pickup_slots (capacity/taken)
+    // Fallback: compute live from v_slot_capacity
     const fallback = await computeCountsFromSlots();
     setCounts(fallback);
   }, [computeCountsFromSlots]);

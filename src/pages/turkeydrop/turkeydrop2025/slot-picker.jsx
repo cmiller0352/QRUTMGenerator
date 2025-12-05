@@ -117,12 +117,25 @@ export default function SlotPicker({ eventId }) {
 
   const fetchSlots = useCallback(async () => {
     setLoadingSlots(true);
-    const { data } = await supabase
-      .from("pickup_slots")
-      .select("id,label,capacity,taken,start_utc")
-      .eq("event_id", eventId)
-      .order("start_utc", { ascending: true });
-    if (data) setSlots(data);
+    const { data, error } = await supabase
+      .from("v_slot_capacity")
+      .select("slot_id,label,capacity,seats_taken,seats_remaining,is_full")
+      .eq("event_id", eventId);
+    if (!error && data) {
+      const normalized = data
+        .map((row) => ({
+          id: row.slot_id || row.id,
+          label: row.label,
+          capacity: row.capacity,
+          seats_taken: row.seats_taken,
+          seats_remaining: row.seats_remaining,
+          is_full: row.is_full,
+        }))
+        .sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+      setSlots(normalized);
+    } else if (error) {
+      setSlots([]);
+    }
     setLoadingSlots(false);
   }, [eventId]);
 
@@ -131,9 +144,12 @@ export default function SlotPicker({ eventId }) {
   }, [fetchSlots]);
 
   const remaining = (s) => {
-    const cap = Number.isFinite(s.capacity) ? s.capacity : 0;
-    const t = Number.isFinite(s.taken) ? s.taken : 0;
-    return Math.max(0, cap - t);
+    if (!s) return 0;
+    const rem = Number(s.seats_remaining);
+    if (Number.isFinite(rem)) return Math.max(0, rem);
+    const cap = Number(s.capacity) || 0;
+    const taken = Number(s.seats_taken) || 0;
+    return Math.max(0, cap - taken);
   };
 
   // Phone mask + auto-advance
@@ -257,13 +273,13 @@ export default function SlotPicker({ eventId }) {
     // Pre-submit: revalidate remaining for the selected slot
     try {
       const { data: freshSlot } = await supabase
-        .from("pickup_slots")
-        .select("id,capacity,taken,label")
-        .eq("id", slotId)
+        .from("v_slot_capacity")
+        .select("slot_id,capacity,seats_taken,seats_remaining,is_full")
+        .eq("slot_id", slotId)
         .maybeSingle();
 
       const remainingNow = freshSlot
-        ? Math.max(0, (freshSlot.capacity || 0) - (freshSlot.taken || 0))
+        ? Math.max(0, Number(freshSlot.seats_remaining) || 0)
         : 0;
 
       if (remainingNow <= 0) {
@@ -506,7 +522,7 @@ export default function SlotPicker({ eventId }) {
           {!loadingSlots &&
             slots.map((s) => {
               const rem = remaining(s);
-              const disabled = rem <= 0;
+              const disabled = s.is_full || rem <= 0;
               return (
                 <label
                   key={s.id}

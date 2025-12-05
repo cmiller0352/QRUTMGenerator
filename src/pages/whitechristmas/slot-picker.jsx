@@ -117,14 +117,17 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
   };
 
   const fetchSlot = useCallback(async () => {
-    const { data } = await supabase
-      .from("pickup_slots")
-      .select("id,label,capacity,taken,start_utc")
-      .eq("event_id", eventId)
-      .order("start_utc", { ascending: true });
-    if (Array.isArray(data) && data.length > 0) {
-      setSlot(data[0]);
-      setSlotId(data[0].id);
+    const { data, error } = await supabase
+      .from("v_slot_capacity")
+      .select("slot_id,label,capacity,seats_taken,seats_remaining,is_full")
+      .eq("event_id", eventId);
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const sorted = [...data].sort((a, b) =>
+        (a?.label || "").localeCompare(b?.label || "")
+      );
+      const next = sorted[0];
+      setSlot(next);
+      setSlotId(next?.slot_id || "");
     } else {
       setSlot(null);
       setSlotId("");
@@ -137,13 +140,15 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
 
   const remaining = (s) => {
     if (!s) return 0;
-    const cap = Number.isFinite(s.capacity) ? s.capacity : 0;
-    const t = Number.isFinite(s.taken) ? s.taken : 0;
-    return Math.max(0, cap - t);
+    const rem = Number(s.seats_remaining);
+    if (Number.isFinite(rem)) return Math.max(0, rem);
+    const cap = Number(s.capacity) || 0;
+    const taken = Number(s.seats_taken) || 0;
+    return Math.max(0, cap - taken);
   };
 
   const remainingSeats = slot ? remaining(slot) : 0;
-  const soldOut = slot ? remainingSeats < 2 : false;
+  const soldOut = slot ? Boolean(slot.is_full || remainingSeats < 2) : false;
   const familyOptions = slot
     ? FAMILY_CHOICES.filter((n) => n <= remainingSeats)
     : FAMILY_CHOICES;
@@ -287,13 +292,13 @@ export default function WhiteChristmasSlotPicker({ eventId }) {
 
     try {
       const { data: freshSlot } = await supabase
-        .from("pickup_slots")
-        .select("id,capacity,taken,label")
-        .eq("id", slotId)
+        .from("v_slot_capacity")
+        .select("slot_id,capacity,seats_taken,seats_remaining,is_full")
+        .eq("slot_id", slotId)
         .maybeSingle();
 
       const remainingNow = freshSlot
-        ? Math.max(0, (freshSlot.capacity || 0) - (freshSlot.taken || 0))
+        ? Math.max(0, Number(freshSlot.seats_remaining) || 0)
         : 0;
 
       if (remainingNow < familySize) {

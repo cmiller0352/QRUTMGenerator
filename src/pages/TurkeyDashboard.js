@@ -444,7 +444,6 @@ export default function TurkeyDashboard() {
         { h: "ZIP", a: (r) => r.postal_code ?? "" },
         { h: "RHP Client?", a: (r) => (r.rhp_client_status ? "Yes" : "No") },
         { h: "Peer Contact Opt-In?", a: (r) => (r.peer_contact_opt_in ? "Yes" : "No") },
-        { h: "Texas Roadhouse Raffle?", a: (r) => (r.raffle_opt_in ? "Yes" : "No") },
         {
           h: "Family Size",
           a: (r) => (typeof r.family_size === "number" ? String(r.family_size) : ""),
@@ -512,7 +511,6 @@ export default function TurkeyDashboard() {
       city,
       state,
       postal_code,
-      raffle_opt_in,
       rhp_client_status,
       peer_contact_opt_in,
     } = editRow;
@@ -527,7 +525,6 @@ export default function TurkeyDashboard() {
       city: city ?? null,
       state: state ?? null,
       postal_code: postal_code ?? null,
-      raffle_opt_in: !!raffle_opt_in,
       rhp_client_status: !!rhp_client_status,
       peer_contact_opt_in: !!peer_contact_opt_in,
     };
@@ -1039,13 +1036,6 @@ export default function TurkeyDashboard() {
                 value={!!editRow.peer_contact_opt_in}
                 onChange={(v) =>
                   setEditRow((s) => ({ ...s, peer_contact_opt_in: v }))
-                }
-              />
-              <Toggle
-                label="Texas Roadhouse Raffle?"
-                value={!!editRow.raffle_opt_in}
-                onChange={(v) =>
-                  setEditRow((s) => ({ ...s, raffle_opt_in: v }))
                 }
               />
             </div>

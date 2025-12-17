@@ -22,70 +22,19 @@ export default async function handler(req) {
     const rawSegment = url.pathname.split('/').filter(Boolean).pop() || '';
     const shortNorm = normalizeShortcode(rawSegment);
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
-    );
-
     if (!shortNorm) {
       return new Response('Missing short code', { status: 400 });
     }
 
-    // --- 1) Primary lookup: short_code match
-    let record = null;
-    const { data, error } = await supabase
-      .from('qr_utm_generator_logs')
-      .select('full_url, short_code')
-      .eq('short_code', shortNorm)
-      .maybeSingle();
+    // Use service role for server-side redirect + signed PDF URLs
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+    );
 
-    if (!error && data) {
-      record = data;
-    }
-
-    // --- 2) Fallbacks: treat path as campaign identifier
-    if (!record) {
-      const attempts = [
-        { column: 'utm_campaign', value: rawSegment },
-        { column: 'utm_campaign', value: shortNorm },
-        { column: 'utm_campaign', value: rawSegment, op: 'ilike' },
-      ];
-
-      for (const attempt of attempts) {
-        let q = supabase
-          .from('qr_utm_generator_logs')
-          .select('full_url, short_code, created_at')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (attempt.op === 'ilike') {
-          q = q.ilike(attempt.column, attempt.value);
-        } else {
-          q = q.eq(attempt.column, attempt.value);
-        }
-
-        const { data: fallbackData, error: fallbackError } = await q.maybeSingle();
-        if (!fallbackError && fallbackData) {
-          record = fallbackData;
-          break;
-        }
-      }
-    }
-
-    if (!record || !record.full_url) {
-      return new Response('Short link not found', { status: 404 });
-    }
-
-    const fullUrl = record.full_url;
-    const resolvedShortCode = record.short_code || shortNorm;
-
-    const parsedUrl = new URL(fullUrl);
-    const utm_source = parsedUrl.searchParams.get('utm_source') || null;
-    const utm_medium = parsedUrl.searchParams.get('utm_medium') || null;
-    const utm_campaign = parsedUrl.searchParams.get('utm_campaign') || null;
-    const utm_term = parsedUrl.searchParams.get('utm_term') || null;
-    const utm_content = parsedUrl.searchParams.get('utm_content') || null;
-
+    // -------------------------
+    // 0) Shared request metadata (logging)
+    // -------------------------
     const userAgent = req.headers.get('user-agent') || '';
     const referer = req.headers.get('referer') || null;
 
@@ -131,6 +80,112 @@ export default async function handler(req) {
         inferred_source = 'unknown'; inferred_medium = 'web';
       }
     }
+
+    // -------------------------
+    // 1) NEW primary lookup: qr_redirects (supports PDF targets)
+    // -------------------------
+    let resolvedShortCode = shortNorm;
+    let fullUrl = null;
+
+    const { data: qrRow, error: qrErr } = await supabase
+      .from('qr_redirects')
+      .select('short_code, full_url, target_type, pdf_bucket, pdf_path, pdf_filename, pdf_cache_bust')
+      .eq('short_code', shortNorm)
+      .maybeSingle();
+
+    if (!qrErr && qrRow) {
+      resolvedShortCode = qrRow.short_code || shortNorm;
+
+      if ((qrRow.target_type || 'url') === 'pdf') {
+        const bucket = qrRow.pdf_bucket;
+        const path = qrRow.pdf_path;
+
+        if (!bucket || !path) {
+          return new Response('PDF target misconfigured', { status: 500 });
+        }
+
+        const { data: signed, error: signErr } = await supabase
+          .storage
+          .from(bucket)
+          .createSignedUrl(path, 60 * 10); // 10 minutes
+
+        if (signErr || !signed?.signedUrl) {
+          return new Response(`Failed to sign PDF: ${signErr?.message || 'unknown'}`, { status: 500 });
+        }
+
+        const v = typeof qrRow.pdf_cache_bust === 'number' ? qrRow.pdf_cache_bust : 0;
+        const signedUrl = new URL(signed.signedUrl);
+        signedUrl.searchParams.set('v', String(v));
+
+        fullUrl = signedUrl.toString();
+      } else {
+        fullUrl = (qrRow.full_url || '').trim();
+      }
+    }
+
+    // -------------------------
+    // 2) Existing fallback lookup: qr_utm_generator_logs
+    // -------------------------
+    if (!fullUrl) {
+      let record = null;
+      const { data, error } = await supabase
+        .from('qr_utm_generator_logs')
+        .select('full_url, short_code')
+        .eq('short_code', shortNorm)
+        .maybeSingle();
+
+      if (!error && data) {
+        record = data;
+      }
+
+      if (!record) {
+        const attempts = [
+          { column: 'utm_campaign', value: rawSegment },
+          { column: 'utm_campaign', value: shortNorm },
+          { column: 'utm_campaign', value: rawSegment, op: 'ilike' },
+        ];
+
+        for (const attempt of attempts) {
+          let q = supabase
+            .from('qr_utm_generator_logs')
+            .select('full_url, short_code, created_at')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (attempt.op === 'ilike') {
+            q = q.ilike(attempt.column, attempt.value);
+          } else {
+            q = q.eq(attempt.column, attempt.value);
+          }
+
+          const { data: fallbackData, error: fallbackError } = await q.maybeSingle();
+          if (!fallbackError && fallbackData) {
+            record = fallbackData;
+            break;
+          }
+        }
+      }
+
+      if (!record || !record.full_url) {
+        return new Response('Short link not found', { status: 404 });
+      }
+
+      fullUrl = record.full_url;
+      resolvedShortCode = record.short_code || shortNorm;
+    }
+
+    // -------------------------
+    // 3) Log scan (same table as before)
+    // -------------------------
+    let utm_source = null, utm_medium = null, utm_campaign = null, utm_term = null, utm_content = null;
+    try {
+      const parsedUrl = new URL(fullUrl);
+      utm_source = parsedUrl.searchParams.get('utm_source') || null;
+      utm_medium = parsedUrl.searchParams.get('utm_medium') || null;
+      utm_campaign = parsedUrl.searchParams.get('utm_campaign') || null;
+      utm_term = parsedUrl.searchParams.get('utm_term') || null;
+      utm_content = parsedUrl.searchParams.get('utm_content') || null;
+    } catch {}
 
     const payload = {
       short_code: resolvedShortCode,

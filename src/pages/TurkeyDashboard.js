@@ -511,6 +511,7 @@ export default function TurkeyDashboard() {
       city,
       state,
       postal_code,
+      family_size,
       rhp_client_status,
       peer_contact_opt_in,
     } = editRow;
@@ -525,6 +526,13 @@ export default function TurkeyDashboard() {
       city: city ?? null,
       state: state ?? null,
       postal_code: postal_code ?? null,
+      family_size: (() => {
+        const parsed =
+          typeof family_size === "number"
+            ? family_size
+            : Number(family_size);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      })(),
       rhp_client_status: !!rhp_client_status,
       peer_contact_opt_in: !!peer_contact_opt_in,
     };
@@ -1022,6 +1030,20 @@ export default function TurkeyDashboard() {
                 />
               </Field>
             </div>
+
+            <Field label="Family Size">
+              <input
+                type="number"
+                min={1}
+                value={editRow.family_size ?? ""}
+                onChange={(e) =>
+                  setEditRow((s) => ({
+                    ...s,
+                    family_size: e.target.value === "" ? "" : Number(e.target.value),
+                  }))
+                }
+              />
+            </Field>
 
             <div style={threeCol}>
               <Toggle

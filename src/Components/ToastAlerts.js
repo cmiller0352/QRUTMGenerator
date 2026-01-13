@@ -2,7 +2,14 @@
 import React from 'react';
 import { Snackbar, Alert, Box, Typography, Button } from '@mui/material';
 
-const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSnackbar, shortCode }) => {
+const ToastAlerts = ({
+  openSnackbar,
+  setOpenSnackbar,
+  errorSnackbar,
+  setErrorSnackbar,
+  shortCode,
+  errorMessage = 'Error saving QR code. Please try again.',
+}) => {
   const shortLink = shortCode
     ? `https://www.roadhome.io/${shortCode}`
     : null;
@@ -80,7 +87,7 @@ const ToastAlerts = ({ openSnackbar, setOpenSnackbar, errorSnackbar, setErrorSna
             boxShadow: 2,
           }}
         >
-          Error saving QR code. Please try again.
+          {errorMessage}
         </Alert>
       </Snackbar>
     </>

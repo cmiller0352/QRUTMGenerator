@@ -57,6 +57,7 @@ const GeneratorPage = () => {
   const [linkType, setLinkType] = useState('qr');
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [errorSnackbar, setErrorSnackbar] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('Error saving QR code. Please try again.');
 
   // Results
   const [shortCode, setShortCode] = useState('');
@@ -68,6 +69,8 @@ const GeneratorPage = () => {
   const [useCampaignAsShort, setUseCampaignAsShort] = useState(false);
 
   const canvasRef = useRef(null);
+  const isBaseUrlValid = isValidUrl(baseUrl);
+  const showBaseUrlError = Boolean(baseUrl && !isBaseUrlValid);
 
   // Compose preview URL as inputs change (safe if baseUrl is empty/invalid)
   useEffect(() => {
@@ -99,6 +102,7 @@ const GeneratorPage = () => {
         backgroundColor,
         logoFile: logoFile || shieldLogo,
         logoScale,
+        logoPaddingPx: 1,
       });
     }
   }, [targetUrl, foregroundColor, backgroundColor, logoFile, logoScale, linkType]);
@@ -130,10 +134,19 @@ const GeneratorPage = () => {
     return generateShortCode();
   };
 
+  const previewShortcode = (() => {
+    if (customShort) return sanitizeShortcode(customShort) || '(auto-generated)';
+    if (useCampaignAsShort && utmCampaign) {
+      return sanitizeShortcode(utmCampaign) || '(auto-generated)';
+    }
+    return '(auto-generated)';
+  })();
+
   const handleSaveQr = async () => {
     // Guard: need a valid base URL to save
-    if (!isValidUrl(baseUrl)) {
+    if (!isBaseUrlValid) {
       console.error('Save blocked: baseUrl is empty or invalid:', baseUrl);
+      setErrorMessage('Please enter a valid base URL (including https://) before saving.');
       setErrorSnackbar(true);
       return;
     }
@@ -182,6 +195,7 @@ const GeneratorPage = () => {
 
     if (error) {
       console.error('❌ Error saving to Supabase:', error);
+      setErrorMessage(error?.message || 'Error saving QR code. Please try again.');
       setErrorSnackbar(true);
       return;
     }
@@ -191,12 +205,18 @@ const GeneratorPage = () => {
     setShortUrl(short);
     setTargetUrl(fullTargetUrl);
     setOpenSnackbar(true);
+    setErrorMessage('Error saving QR code. Please try again.');
   };
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {/* Target + UTM */}
-      <TargetUrlInput targetUrl={targetUrl} setBaseUrl={setBaseUrl} />
+      <TargetUrlInput
+        baseUrl={baseUrl}
+        setBaseUrl={setBaseUrl}
+        finalUrl={targetUrl}
+        showBaseUrlError={showBaseUrlError}
+      />
       <UtmFields
         utmSource={utmSource}
         setUtmSource={setUtmSource}
@@ -226,24 +246,41 @@ const GeneratorPage = () => {
             }
             label="Use UTM Campaign as Shortcode when Custom Shortcode is empty"
           />
+          <Typography variant="caption" color="text.secondary">
+            Shortcode preview: {previewShortcode || '(auto-generated)'}
+          </Typography>
         </Stack>
       </Box>
 
       {/* Save options, colors, logo, export */}
       <SaveOptions linkType={linkType} setLinkType={setLinkType} />
-      <ColorPicker
+      {linkType !== 'link' && (
+        <ColorPicker
+          foregroundColor={foregroundColor}
+          setForegroundColor={setForegroundColor}
+          backgroundColor={backgroundColor}
+          setBackgroundColor={setBackgroundColor}
+        />
+      )}
+      <ExportButtons
+        targetUrl={targetUrl}
+        canvasRef={canvasRef}
+        onSave={handleSaveQr}
+        linkType={linkType}
+        disableSave={!isBaseUrlValid}
         foregroundColor={foregroundColor}
-        setForegroundColor={setForegroundColor}
         backgroundColor={backgroundColor}
-        setBackgroundColor={setBackgroundColor}
-      />
-      <ExportButtons targetUrl={targetUrl} canvasRef={canvasRef} onSave={handleSaveQr} />
-      <LogoUpload
-        logoFile={logoFile}
-        setLogoFile={setLogoFile}
+        logoFileOrUrl={logoFile || shieldLogo}
         logoScale={logoScale}
-        setLogoScale={setLogoScale}
       />
+      {linkType !== 'link' && (
+        <LogoUpload
+          logoFile={logoFile}
+          setLogoFile={setLogoFile}
+          logoScale={logoScale}
+          setLogoScale={setLogoScale}
+        />
+      )}
 
       {/* QR preview */}
       {linkType !== 'link' && (
@@ -280,6 +317,7 @@ const GeneratorPage = () => {
         errorSnackbar={errorSnackbar}
         setErrorSnackbar={setErrorSnackbar}
         shortCode={shortCode}
+        errorMessage={errorMessage}
       />
     </Container>
   );

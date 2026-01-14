@@ -252,7 +252,7 @@ export default function MailingListSignup() {
 
     try {
       const resp = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/subscribe-mailing-list`,
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/reserve-rsvp`,
         {
           method: "POST",
           headers: {

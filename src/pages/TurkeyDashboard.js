@@ -1,5 +1,5 @@
 // src/pages/TurkeyDashboard.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
 
@@ -16,6 +16,22 @@ const THEME = {
   black: "#000000",
   rowHighlight: "#E7F4EC",
 };
+
+const CONTACT_OPTIONS = ["Email", "Phone", "Text"];
+const VETERAN_OPTIONS = [
+  "Veteran",
+  "Active Duty",
+  "Guard/Reserve",
+  "Family Member/Caregiver",
+  "Provider/Community Partner",
+  "Other",
+];
+const DATE_RANGE_OPTIONS = [
+  { label: "All time", value: "all", hours: null },
+  { label: "Last 24 hours", value: "24h", hours: 24 },
+  { label: "Last 7 days", value: "7d", hours: 24 * 7 },
+  { label: "Last 30 days", value: "30d", hours: 24 * 30 },
+];
 
 const SLOT_ORDER = [
   "11:00–11:30 am",
@@ -67,6 +83,7 @@ function Toggle({ label, value, onChange }) {
 
 export default function TurkeyDashboard() {
   // events + filters
+  const [activeView, setActiveView] = useState("rsvps");
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -102,6 +119,30 @@ export default function TurkeyDashboard() {
   );
   const [editRow, setEditRow] = useState(null);
   const [deleteRow, setDeleteRow] = useState(null);
+
+  // mailing list view
+  const [mlRows, setMlRows] = useState([]);
+  const [mlTotal, setMlTotal] = useState(0);
+  const [mlPage, setMlPage] = useState(0);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState("");
+  const [mlSearch, setMlSearch] = useState("");
+  const [mlPreferredFilter, setMlPreferredFilter] = useState("");
+  const [mlVeteranFilter, setMlVeteranFilter] = useState("");
+  const [mlDateRange, setMlDateRange] = useState("all");
+  const [mlConsentFilter, setMlConsentFilter] = useState("");
+  const [mlSortAsc, setMlSortAsc] = useState(false);
+  const [mlExporting, setMlExporting] = useState(false);
+  const [mlNoteRow, setMlNoteRow] = useState(null);
+  const [mlSelection, setMlSelection] = useState(null);
+  const [mlEditRow, setMlEditRow] = useState(null);
+  const [mlDeleteRow, setMlDeleteRow] = useState(null);
+  const mlPageCount = useMemo(
+    () => Math.max(1, Math.ceil(mlTotal / PAGE_SIZE)),
+    [mlTotal]
+  );
+
+  const mailingRowKey = (row) => row?.id ?? `${row?.created_at}-${row?.email}`;
 
   const fromISO = useMemo(
     () => (fromDate ? `${fromDate}T00:00:00` : null),
@@ -196,6 +237,10 @@ export default function TurkeyDashboard() {
 
   // fetch table
   useEffect(() => {
+    if (activeView !== "rsvps") {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       if (!selectedEventId) {
@@ -228,6 +273,7 @@ export default function TurkeyDashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeView,
     selectedEventId,
     fromISO,
     toISO,
@@ -240,8 +286,10 @@ export default function TurkeyDashboard() {
   ]);
 
   useEffect(() => {
+    if (activeView !== "rsvps") return;
     setPage(0);
   }, [
+    activeView,
     selectedEventId,
     fromISO,
     toISO,
@@ -253,11 +301,13 @@ export default function TurkeyDashboard() {
   ]);
 
   useEffect(() => {
+    if (activeView !== "rsvps") return;
     setInsightsCollapsed(false);
-  }, [selectedEventId]);
+  }, [selectedEventId, activeView]);
 
   // fetch KPIs (includes zero-count slots)
   useEffect(() => {
+    if (activeView !== "rsvps") return;
     let cancelled = false;
     (async () => {
       if (!selectedEventId) {
@@ -386,6 +436,7 @@ export default function TurkeyDashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeView,
     selectedEventId,
     fromISO,
     toISO,
@@ -474,12 +525,202 @@ export default function TurkeyDashboard() {
     }
   };
 
+  const buildMailingQuery = useCallback(
+    (selectCols = "*") => {
+      let query = supabase
+        .from("mailing_list_signups")
+        .select(selectCols, { count: "exact" })
+        .order("created_at", { ascending: mlSortAsc });
+
+    const term = mlSearch.trim();
+    if (term) {
+      const safe = term.replace(/[(),]/g, "");
+      const digits = safe.replace(/\D/g, "");
+      const likeVal = `%${safe}%`;
+      const clauses = [
+        `first_name.ilike.${likeVal}`,
+        `last_name.ilike.${likeVal}`,
+        `email.ilike.${likeVal}`,
+        `phone.ilike.${likeVal}`,
+      ];
+      if (digits.length >= 4) clauses.push(`phone.ilike.%${digits}%`);
+      query = query.or(clauses.join(","));
+    }
+
+    if (mlPreferredFilter) query = query.eq("preferred_contact", mlPreferredFilter);
+    if (mlVeteranFilter) query = query.eq("veteran_affiliation", mlVeteranFilter);
+    if (mlConsentFilter) query = query.eq("consent", mlConsentFilter === "yes");
+
+    const rangeDef = DATE_RANGE_OPTIONS.find((opt) => opt.value === mlDateRange);
+      if (rangeDef?.hours) {
+        const cutoff = new Date(Date.now() - rangeDef.hours * 60 * 60 * 1000).toISOString();
+        query = query.gte("created_at", cutoff);
+      }
+
+      return query;
+    },
+    [mlSortAsc, mlSearch, mlPreferredFilter, mlVeteranFilter, mlConsentFilter, mlDateRange]
+  );
+
+  useEffect(() => {
+    if (activeView !== "mailing") return;
+    setMlSelection(null);
+    let cancelled = false;
+    (async () => {
+      setMlLoading(true);
+      setMlError("");
+      try {
+        const from = mlPage * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        const query = buildMailingQuery("*").range(from, to);
+        const { data, error, count } = await query;
+        if (error) throw error;
+        if (!cancelled) {
+          setMlRows(data || []);
+          setMlTotal(count || 0);
+        }
+      } catch (err) {
+        console.error("Mailing list fetch error", err);
+        if (!cancelled) setMlError(err.message || "Failed to load signups");
+      } finally {
+        if (!cancelled) setMlLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, mlPage, buildMailingQuery]);
+
+  useEffect(() => {
+    if (activeView !== "mailing") return;
+    setMlPage(0);
+  }, [activeView, mlSearch, mlPreferredFilter, mlVeteranFilter, mlConsentFilter, mlDateRange]);
+
+  const clearMailingFilters = () => {
+    setMlSearch("");
+    setMlPreferredFilter("");
+    setMlVeteranFilter("");
+    setMlConsentFilter("");
+    setMlDateRange("all");
+    setMlPage(0);
+  };
+
+  const exportMailingCsv = async () => {
+    try {
+      setMlExporting(true);
+      const { data, error } = await buildMailingQuery("*");
+      if (error) throw error;
+      const rows = data || [];
+      const headers = [
+        "created_at",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "postal_code",
+        "veteran_affiliation",
+        "preferred_contact",
+        "interests",
+        "consent",
+        "source",
+        "page_path",
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "notes",
+      ];
+      const csv = [
+        headers.join(","),
+        ...rows.map((row) =>
+          headers
+            .map((key) => {
+              const val = row[key];
+              if (val == null) return "";
+              if (Array.isArray(val)) return `"${val.join(" | ").replace(/"/g, '""')}"`;
+              const str = String(val);
+              return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+            })
+            .join(",")
+        ),
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `mailing-list-${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Export failed: ${err.message || err}`);
+    } finally {
+      setMlExporting(false);
+    }
+  };
+
+  const mlStats = useMemo(() => {
+    const now = Date.now();
+    const weekCutoff = now - 7 * 24 * 60 * 60 * 1000;
+    let last7 = 0;
+    let emailCount = 0;
+    let otherCount = 0;
+    const interestMap = {};
+
+    mlRows.forEach((row) => {
+      const created = row?.created_at ? new Date(row.created_at).getTime() : null;
+      if (created && created >= weekCutoff) last7 += 1;
+      if ((row.preferred_contact || "").toLowerCase() === "email") emailCount += 1;
+      else otherCount += 1;
+      const interestList = Array.isArray(row.interests)
+        ? row.interests
+        : row.interests
+        ? String(row.interests)
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+      interestList.forEach((interest) => {
+        interestMap[interest] = (interestMap[interest] || 0) + 1;
+      });
+    });
+
+    const emailPct =
+      emailCount + otherCount === 0
+        ? 0
+        : Math.round((emailCount / (emailCount + otherCount)) * 100);
+
+    const topInterests = Object.entries(interestMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    return { last7, emailPct, topInterests };
+  }, [mlRows]);
+
+  useEffect(() => {
+    if (activeView !== "mailing") setMlSelection(null);
+  }, [activeView]);
+
   // selection & actions
   const onRowClick = (id) => setSelectedId((cur) => (cur === id ? null : id));
   const openEdit = (row) => setEditRow({ ...row });
   const closeEdit = () => setEditRow(null);
   const openDelete = (row) => setDeleteRow(row);
   const closeDelete = () => setDeleteRow(null);
+  const onMailingRowClick = (row) => {
+    const key = mailingRowKey(row);
+    setMlSelection((prev) => (prev && prev.key === key ? null : { key, row }));
+  };
+  const openMailingEdit = (row) =>
+    setMlEditRow({
+      ...row,
+      interests_string: Array.isArray(row.interests)
+        ? row.interests.join(", ")
+        : row.interests || "",
+    });
+  const closeMailingEdit = () => setMlEditRow(null);
+  const openMailingDelete = (row) => setMlDeleteRow(row);
+  const closeMailingDelete = () => setMlDeleteRow(null);
 
   const handleDeleteConfirm = async () => {
     if (!deleteRow) return;
@@ -495,6 +736,72 @@ export default function TurkeyDashboard() {
       alert(`Delete failed: ${e.message || e}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMailingDeleteConfirm = async () => {
+    if (!mlDeleteRow) return;
+    try {
+      setMlLoading(true);
+      const { error } = await supabase
+        .from("mailing_list_signups")
+        .delete()
+        .eq("id", mlDeleteRow.id);
+      if (error) throw error;
+      setMlRows((prev) => prev.filter((row) => row.id !== mlDeleteRow.id));
+      setMlTotal((t) => Math.max(0, t - 1));
+      setMlSelection((prev) => (prev && prev.key === mailingRowKey(mlDeleteRow) ? null : prev));
+      closeMailingDelete();
+    } catch (err) {
+      alert(`Delete failed: ${err.message || err}`);
+    } finally {
+      setMlLoading(false);
+    }
+  };
+
+  const handleMailingEditSave = async () => {
+    if (!mlEditRow) return;
+    const interestList = mlEditRow.interests_string
+      ? mlEditRow.interests_string
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+    const patch = {
+      first_name: mlEditRow.first_name?.trim() || null,
+      last_name: mlEditRow.last_name?.trim() || null,
+      email: mlEditRow.email?.trim() || null,
+      phone: mlEditRow.phone?.trim() || null,
+      postal_code: mlEditRow.postal_code?.trim() || null,
+      veteran_affiliation: mlEditRow.veteran_affiliation || null,
+      preferred_contact: mlEditRow.preferred_contact || null,
+      consent: !!mlEditRow.consent,
+      interests: interestList,
+      source: mlEditRow.source?.trim() || null,
+      page_path: mlEditRow.page_path?.trim() || null,
+      utm_source: mlEditRow.utm_source?.trim() || null,
+      utm_medium: mlEditRow.utm_medium?.trim() || null,
+      utm_campaign: mlEditRow.utm_campaign?.trim() || null,
+      notes: mlEditRow.notes?.trim() || null,
+    };
+    try {
+      setMlLoading(true);
+      const { data, error } = await supabase
+        .from("mailing_list_signups")
+        .update(patch)
+        .eq("id", mlEditRow.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setMlRows((prev) => prev.map((row) => (row.id === data.id ? data : row)));
+      setMlSelection((prev) =>
+        prev && prev.row?.id === data.id ? { key: mailingRowKey(data), row: data } : prev
+      );
+      closeMailingEdit();
+    } catch (err) {
+      alert(`Update failed: ${err.message || err}`);
+    } finally {
+      setMlLoading(false);
     }
   };
 
@@ -646,218 +953,237 @@ export default function TurkeyDashboard() {
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: THEME.green }}>
-          RSVP Admin
+          {activeView === "rsvps" ? "RSVP Admin" : "Mailing List Signups"}
         </h1>
         <div style={{ color: "#6b7280", marginTop: 4 }}>
-          {selectedEventName
-            ? `Viewing RSVPs for: ${selectedEventName}`
-            : "Select an event to begin."}
+          {activeView === "rsvps"
+            ? selectedEventName
+              ? `Viewing RSVPs for: ${selectedEventName}`
+              : "Select an event to begin."
+            : "Review submissions captured via the public signup page."}
         </div>
         <div style={{ color: "#6b7280", fontSize: 13 }}>
           Search runs server-side across all pages.
         </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          {[
+            { key: "rsvps", label: "Event RSVPs" },
+            { key: "mailing", label: "Mailing List" },
+          ].map((btn) => {
+            const active = activeView === btn.key;
+            return (
+              <button
+                key={btn.key}
+                onClick={() => setActiveView(btn.key)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 20,
+                  border: active ? `2px solid ${THEME.green}` : "1px solid #e5e7eb",
+                  background: active ? "#E7F4EC" : "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {btn.label}
+              </button>
+            );
+          })}
+        </div>
       </header>
 
-      {/* Filters / Export */}
-      <section style={card}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.4fr 0.8fr 0.8fr 1.6fr auto",
-            gap: 12,
-            alignItems: "end",
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>Event</label>
-            <select
-              value={selectedEventId}
-              onChange={(e) => {
-                setSelectedEventId(e.target.value || "");
-                setPage(0);
-                setSelectedId(null);
-              }}
+      {activeView === "mailing" ? (
+        <>
+          <section style={card}>
+            <div
               style={{
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                padding: "8px 10px",
-                fontSize: 14,
-                outline: "none",
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto",
+                gap: 12,
+                alignItems: "end",
               }}
             >
-              <option value="">Select an event…</option>
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <LabeledInput
-            label="From date"
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-          />
-          <LabeledInput
-            label="To date"
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-          />
-          <LabeledInput
-            label="Search (fuzzy)"
-            placeholder="Army, Vietnam, name, phone…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Button onClick={exportAll} variant="secondary">
-            Export CSV
-          </Button>
-        </div>
+              <label style={{ fontSize: 13, fontWeight: 500 }}>
+                Search
+                <input
+                  value={mlSearch}
+                  onChange={(e) => setMlSearch(e.target.value)}
+                  placeholder="Name, email, phone"
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "8px 10px",
+                    fontSize: 14,
+                    width: "100%",
+                    marginTop: 4,
+                  }}
+                />
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 500 }}>
+                Preferred contact
+                <select
+                  value={mlPreferredFilter}
+                  onChange={(e) => setMlPreferredFilter(e.target.value)}
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "8px 10px",
+                    fontSize: 14,
+                    width: "100%",
+                    marginTop: 4,
+                  }}
+                >
+                  <option value="">All</option>
+                  {CONTACT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 500 }}>
+                Veteran affiliation
+                <select
+                  value={mlVeteranFilter}
+                  onChange={(e) => setMlVeteranFilter(e.target.value)}
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "8px 10px",
+                    fontSize: 14,
+                    width: "100%",
+                    marginTop: 4,
+                  }}
+                >
+                  <option value="">All</option>
+                  {VETERAN_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 500 }}>
+                Consent
+                <select
+                  value={mlConsentFilter}
+                  onChange={(e) => setMlConsentFilter(e.target.value)}
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "8px 10px",
+                    fontSize: 14,
+                    width: "100%",
+                    marginTop: 4,
+                  }}
+                >
+                  <option value="">All</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 500 }}>
+                Date range
+                <select
+                  value={mlDateRange}
+                  onChange={(e) => setMlDateRange(e.target.value)}
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "8px 10px",
+                    fontSize: 14,
+                    width: "100%",
+                    marginTop: 4,
+                  }}
+                >
+                  {DATE_RANGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <Button variant="ghost" onClick={clearMailingFilters}>
+                  Clear
+                </Button>
+                <Button onClick={exportMailingCsv} disabled={mlExporting}>
+                  {mlExporting ? "Exporting…" : "Export CSV"}
+                </Button>
+              </div>
+            </div>
+          </section>
 
-        {/* filter pills */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-          {branchFilter && (
-            <Pill onClear={() => setBranchFilter("")} label={`Branch: ${branchFilter}`} />
-          )}
-          {eraFilter && <Pill onClear={() => setEraFilter("")} label={`Era: ${eraFilter}`} />}
-          {clientFilter === "yes" && (
-            <Pill onClear={() => setClientFilter("")} label="RHP Clients: Yes" />
-          )}
-          {contactFilter === "yes" && (
-            <Pill onClear={() => setContactFilter("")} label="Peer Contact: Yes" />
-          )}
-          {(branchFilter ||
-            eraFilter ||
-            clientFilter ||
-            contactFilter ||
-            fromDate ||
-            toDate ||
-            search) && (
-            <Pill kind="reset" onClear={clearAllFilters} label="Clear all filters" />
-          )}
-        </div>
-      </section>
+          <section style={card}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <StatCard title="Total signups" value={mlTotal} />
+              <StatCard title="Last 7 days (page)" value={mlStats.last7} />
+              <StatCard title="Prefers email" value={`${mlStats.emailPct}%`} />
+              <div
+                style={{
+                  background: "#fff",
+                  border: `1px solid ${THEME.white}`,
+                  borderRadius: 12,
+                  padding: 16,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div style={{ color: "#6b7280", fontSize: 12, fontWeight: 600 }}>
+                  Top interests
+                </div>
+                {mlStats.topInterests.length === 0 ? (
+                  <div style={{ color: "#6b7280" }}>—</div>
+                ) : (
+                  <ul style={{ paddingLeft: 16, margin: "8px 0 0" }}>
+                    {mlStats.topInterests.map(([label, count]) => (
+                      <li key={label}>
+                        {label} ({count})
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
 
-      {!selectedEventId ? (
-        <section style={card}>
-          <div style={{ color: "#6b7280", fontWeight: 600 }}>
-            Select an event to view RSVPs.
-          </div>
-        </section>
-      ) : (
-        <>
           <section style={card}>
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: 16,
               }}
             >
-              <div style={{ fontWeight: 800, fontSize: 18, color: THEME.green }}>Insights</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {selectedEventName && (
-                  <div style={{ color: "#6b7280", fontSize: 13 }}>
-                    Showing data for {selectedEventName}
-                  </div>
-                )}
-                <Button
-                  variant="ghost"
-                  onClick={() => setInsightsCollapsed((prev) => !prev)}
-                  style={{ minWidth: 120 }}
-                >
-                  {insightsCollapsed ? "Show insights" : "Hide insights"}
-                </Button>
-              </div>
-            </div>
-
-            {insightsCollapsed ? (
-              <div style={{ color: "#6b7280", fontStyle: "italic" }}>
-                Insights collapsed. Use the toggle above to expand.
-              </div>
-            ) : isTurkeyEvent ? (
-              <>
-                {ringCards}
-                {branchEraBreakdowns}
-                <BreakdownCard title="Slot Utilization">
-                  {slotSummaries.length === 0 ? (
-                    <div style={{ color: "#6b7280" }}>No slot data</div>
-                  ) : (
-                    <div style={{ display: "grid", gap: 12 }}>
-                      {slotSummaries.map(({ label, count, capacity, percent }) => (
-                        <div key={label} style={{ display: "grid", gap: 6 }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              fontWeight: 600,
-                            }}
-                          >
-                            <span>{label}</span>
-                            <span>
-                              {count} / {capacity}
-                            </span>
-                          </div>
-                          <Progress value={percent} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </BreakdownCard>
-              </>
-            ) : (
-              <>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: 16,
-                    marginBottom: 16,
-                  }}
-                >
-                  <StatCard
-                    title={isWhiteChristmasEvent ? "Families registered" : "Families"}
-                    value={familyCount}
-                  />
-                  <StatCard title="Tickets claimed" value={ticketsTotal} />
-                </div>
-                {ringCards}
-                {branchEraBreakdowns}
-              </>
-            )}
-          </section>
-
-          <section style={card}>
-            <div style={toolbarRow}>
               <div style={{ color: "#374151" }}>
-                <strong>Page {page + 1}</strong> of{" "}
-                <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong> •{" "}
-                <strong>{total}</strong> total
+                Page <strong>{mlPage + 1}</strong> of <strong>{mlPageCount}</strong> •{" "}
+                <strong>{mlTotal}</strong> records
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <Button
                   variant="ghost"
-                  disabled={page === 0 || loading}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={mlPage === 0 || mlLoading}
+                  onClick={() => setMlPage((p) => Math.max(0, p - 1))}
                 >
                   Prev
                 </Button>
                 <Button
                   variant="ghost"
-                  disabled={loading || page + 1 >= Math.max(1, Math.ceil(total / PAGE_SIZE))}
-                  onClick={() => setPage((p) => p + 1)}
+                  disabled={mlLoading || mlPage + 1 >= mlPageCount}
+                  onClick={() => setMlPage((p) => p + 1)}
                 >
                   Next
                 </Button>
-                {selectedRow && (
+                {mlSelection?.row && (
                   <>
-                    <Button variant="ghost" onClick={() => openEdit(selectedRow)}>
+                    <Button variant="ghost" onClick={() => openMailingEdit(mlSelection.row)}>
                       Edit
                     </Button>
-                    <Button variant="danger" onClick={() => openDelete(selectedRow)}>
+                    <Button variant="danger" onClick={() => openMailingDelete(mlSelection.row)}>
                       Delete
                     </Button>
                   </>
@@ -865,79 +1191,143 @@ export default function TurkeyDashboard() {
               </div>
             </div>
 
-            <div style={{ overflowX: "auto" }}>
+            {mlError && <div style={{ marginTop: 12, color: "#b91c1c" }}>{mlError}</div>}
+
+            <div style={{ marginTop: 12, overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead style={{ position: "sticky", top: 0, background: THEME.white, zIndex: 1 }}>
+                <thead>
                   <tr>
+                    <th style={th}>
+                      <button
+                        onClick={() => {
+                          setMlSortAsc((prev) => !prev);
+                          setMlPage(0);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Created {mlSortAsc ? "↑" : "↓"}
+                      </button>
+                    </th>
                     {[
-                      "Created",
-                      "Event",
-                      "Slot",
-                      "Name",
+                      "First",
+                      "Last",
                       "Email",
                       "Phone",
-                      "Status",
-                      "Branch(es)",
-                      "Era / Eras",
-                      "City/State",
-                    ].map((h) => (
-                      <th key={h} style={th}>
-                        {h}
+                      "ZIP",
+                      "Affiliation",
+                      "Contact",
+                      "Interests",
+                      "Consent",
+                      "Source",
+                      "Page",
+                      "Attribution",
+                      "Notes",
+                    ].map((label) => (
+                      <th key={label} style={th}>
+                        {label}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
+                  {mlLoading ? (
                     <tr>
-                      <td colSpan={10} style={{ padding: 16 }}>
+                      <td colSpan={14} style={{ padding: 16 }}>
                         Loading…
                       </td>
                     </tr>
-                  ) : rows.length === 0 ? (
+                  ) : mlRows.length === 0 ? (
                     <tr>
-                      <td colSpan={10} style={{ padding: 16 }}>
-                        No results
+                      <td colSpan={14} style={{ padding: 16 }}>
+                        No signups found.
                       </td>
                     </tr>
                   ) : (
-                    rows.map((r) => {
-                      const isSel = selectedId === r.id;
-                      const green = !!r.peer_contact_opt_in;
+                    mlRows.map((row) => {
+                      const rowKey = mailingRowKey(row);
+                      const isSel = mlSelection?.key === rowKey;
+                      const interestList = Array.isArray(row.interests)
+                        ? row.interests
+                        : row.interests
+                        ? String(row.interests)
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                        : [];
+                      const attribution = [
+                        row.utm_source,
+                        row.utm_medium,
+                        row.utm_campaign,
+                      ].filter(Boolean);
+                      const notesPreview =
+                        row.notes && row.notes.length > 80
+                          ? `${row.notes.slice(0, 80)}…`
+                          : row.notes || "—";
                       return (
                         <tr
-                          key={r.id}
-                          onClick={() => onRowClick(r.id)}
+                          key={rowKey}
+                          onClick={() => onMailingRowClick(row)}
                           style={{
                             borderBottom: "1px solid #f3f4f6",
-                            background: isSel ? "#DCF7E6" : green ? THEME.rowHighlight : "#fff",
+                            background: isSel ? "#DCF7E6" : "#fff",
                             cursor: "pointer",
                             outline: isSel ? `2px solid ${THEME.green}` : "none",
                           }}
                         >
-                          <td style={td}>{fmtDate(r.created_at)}</td>
-                          <td style={td}>{r.event_name}</td>
-                          <td style={td}>{r.slot_label}</td>
+                          <td style={td}>{fmtDate(row.created_at)}</td>
+                          <td style={td}>{row.first_name || "—"}</td>
+                          <td style={td}>{row.last_name || "—"}</td>
+                          <td style={td}>{row.email || "—"}</td>
+                          <td style={td}>{row.phone || "—"}</td>
+                          <td style={td}>{row.postal_code || "—"}</td>
+                          <td style={td}>{row.veteran_affiliation || "—"}</td>
+                          <td style={td}>{row.preferred_contact || "—"}</td>
                           <td style={td}>
-                            <strong>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</strong>
+                            <ChipsList list={interestList} />
                           </td>
-                          <td style={td}>{r.email}</td>
-                          <td style={td}>{r.phone}</td>
-                          <td style={td}>{r.status}</td>
+                          <td style={td}>{row.consent ? "Yes" : "No"}</td>
+                          <td style={td}>{row.source || "—"}</td>
+                          <td style={td}>{row.page_path || "—"}</td>
                           <td style={td}>
-                            {Array.isArray(r.branch_of_service)
-                              ? r.branch_of_service.join(", ")
-                              : r.branch_of_service ?? ""}
+                            {attribution.length ? (
+                              <div style={{ fontSize: 12, color: "#374151" }}>
+                                {attribution.map((item, idx) => (
+                                  <div key={`${item}-${idx}`}>{item}</div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ color: "#6b7280" }}>—</span>
+                            )}
                           </td>
                           <td style={td}>
-                            <div>{r.era}</div>
-                            <div style={{ color: "#6b7280", fontSize: 12 }}>
-                              {Array.isArray(r.era_list)
-                                ? r.era_list.join(", ")
-                                : r.era_list ?? ""}
-                            </div>
+                            {row.notes ? (
+                              <div style={{ display: "grid", gap: 6 }}>
+                                <div>{notesPreview}</div>
+                                <button
+                                  onClick={() => setMlNoteRow(row)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    padding: 0,
+                                    color: THEME.green,
+                                    textDecoration: "underline",
+                                    cursor: "pointer",
+                                    width: "fit-content",
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ color: "#6b7280" }}>—</span>
+                            )}
                           </td>
-                          <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
                         </tr>
                       );
                     })
@@ -945,152 +1335,625 @@ export default function TurkeyDashboard() {
                 </tbody>
               </table>
             </div>
-
-            <div style={{ marginTop: 8, color: "#374151", fontSize: 12 }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 12,
-                  height: 12,
-                  background: THEME.rowHighlight,
-                  border: "1px solid #cfe7db",
-                  marginRight: 6,
-                  verticalAlign: "middle",
-                }}
-              />
-              Rows highlighted in green requested a peer contact.
-            </div>
           </section>
-        </>
-      )}
 
-      {/* Edit Modal */}
-      {editRow && (
-        <Modal title="Edit RSVP" onClose={() => setEditRow(null)}>
+      {mlNoteRow && (
+        <Modal title="Signup Notes" onClose={() => setMlNoteRow(null)}>
+          <div style={{ whiteSpace: "pre-wrap", fontSize: 14 }}>{mlNoteRow.notes}</div>
+          <div style={{ marginTop: 12, fontSize: 12, color: "#6b7280" }}>
+            Submitted {fmtDate(mlNoteRow.created_at)} by {mlNoteRow.email}
+          </div>
+        </Modal>
+      )}
+      {mlEditRow && (
+        <Modal title="Edit Signup" onClose={closeMailingEdit}>
           <div style={{ display: "grid", gap: 12 }}>
             <div style={twoCol}>
               <Field label="First name">
                 <input
-                  value={editRow.first_name || ""}
-                  onChange={(e) => setEditRow((s) => ({ ...s, first_name: e.target.value }))}
+                  value={mlEditRow.first_name || ""}
+                  onChange={(e) => setMlEditRow((prev) => ({ ...prev, first_name: e.target.value }))}
                 />
               </Field>
               <Field label="Last name">
                 <input
-                  value={editRow.last_name || ""}
-                  onChange={(e) => setEditRow((s) => ({ ...s, last_name: e.target.value }))}
+                  value={mlEditRow.last_name || ""}
+                  onChange={(e) => setMlEditRow((prev) => ({ ...prev, last_name: e.target.value }))}
                 />
               </Field>
             </div>
             <div style={twoCol}>
               <Field label="Email">
                 <input
-                  value={editRow.email || ""}
-                  onChange={(e) => setEditRow((s) => ({ ...s, email: e.target.value }))}
+                  value={mlEditRow.email || ""}
+                  onChange={(e) => setMlEditRow((prev) => ({ ...prev, email: e.target.value }))}
                 />
               </Field>
               <Field label="Phone">
                 <input
-                  value={editRow.phone || ""}
-                  onChange={(e) => setEditRow((s) => ({ ...s, phone: e.target.value }))}
+                  value={mlEditRow.phone || ""}
+                  onChange={(e) => setMlEditRow((prev) => ({ ...prev, phone: e.target.value }))}
                 />
               </Field>
             </div>
-            <Field label="Address 1">
-              <input
-                value={editRow.address1 || ""}
-                onChange={(e) => setEditRow((s) => ({ ...s, address1: e.target.value }))}
+            <div style={twoCol}>
+              <Field label="Postal code">
+                <input
+                  value={mlEditRow.postal_code || ""}
+                  onChange={(e) =>
+                    setMlEditRow((prev) => ({ ...prev, postal_code: e.target.value }))
+                  }
+                />
+              </Field>
+              <Field label="Veteran affiliation">
+                <select
+                  value={mlEditRow.veteran_affiliation || ""}
+                  onChange={(e) =>
+                    setMlEditRow((prev) => ({ ...prev, veteran_affiliation: e.target.value }))
+                  }
+                >
+                  <option value="">Select...</option>
+                  {VETERAN_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div style={twoCol}>
+              <Field label="Preferred contact">
+                <select
+                  value={mlEditRow.preferred_contact || ""}
+                  onChange={(e) =>
+                    setMlEditRow((prev) => ({ ...prev, preferred_contact: e.target.value }))
+                  }
+                >
+                  <option value="">Select...</option>
+                  {CONTACT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={!!mlEditRow.consent}
+                  onChange={(e) =>
+                    setMlEditRow((prev) => ({ ...prev, consent: e.target.checked }))
+                  }
+                />
+                Consent given
+              </label>
+            </div>
+            <Field label="Interests (comma separated)">
+              <textarea
+                rows={2}
+                value={mlEditRow.interests_string || ""}
+                onChange={(e) =>
+                  setMlEditRow((prev) => ({ ...prev, interests_string: e.target.value }))
+                }
               />
             </Field>
-            <Field label="Address 2">
+            <Field label="Source">
               <input
-                value={editRow.address2 || ""}
-                onChange={(e) => setEditRow((s) => ({ ...s, address2: e.target.value }))}
+                value={mlEditRow.source || ""}
+                onChange={(e) => setMlEditRow((prev) => ({ ...prev, source: e.target.value }))}
+              />
+            </Field>
+            <Field label="Page path">
+              <input
+                value={mlEditRow.page_path || ""}
+                onChange={(e) => setMlEditRow((prev) => ({ ...prev, page_path: e.target.value }))}
               />
             </Field>
             <div style={threeCol}>
-              <Field label="City">
+              <Field label="UTM source">
                 <input
-                  value={editRow.city || ""}
-                  onChange={(e) => setEditRow((s) => ({ ...s, city: e.target.value }))}
+                  value={mlEditRow.utm_source || ""}
+                  onChange={(e) => setMlEditRow((prev) => ({ ...prev, utm_source: e.target.value }))}
                 />
               </Field>
-              <Field label="State">
+              <Field label="UTM medium">
                 <input
-                  value={editRow.state || ""}
-                  onChange={(e) => setEditRow((s) => ({ ...s, state: e.target.value }))}
+                  value={mlEditRow.utm_medium || ""}
+                  onChange={(e) => setMlEditRow((prev) => ({ ...prev, utm_medium: e.target.value }))}
                 />
               </Field>
-              <Field label="ZIP">
+              <Field label="UTM campaign">
                 <input
-                  value={editRow.postal_code || ""}
+                  value={mlEditRow.utm_campaign || ""}
                   onChange={(e) =>
-                    setEditRow((s) => ({ ...s, postal_code: e.target.value }))
+                    setMlEditRow((prev) => ({ ...prev, utm_campaign: e.target.value }))
                   }
                 />
               </Field>
             </div>
-
-            <Field label="Family Size">
-              <input
-                type="number"
-                min={1}
-                value={editRow.family_size ?? ""}
-                onChange={(e) =>
-                  setEditRow((s) => ({
-                    ...s,
-                    family_size: e.target.value === "" ? "" : Number(e.target.value),
-                  }))
-                }
+            <Field label="Notes">
+              <textarea
+                rows={3}
+                value={mlEditRow.notes || ""}
+                onChange={(e) => setMlEditRow((prev) => ({ ...prev, notes: e.target.value }))}
               />
             </Field>
-
-            <div style={threeCol}>
-              <Toggle
-                label="RHP Client?"
-                value={!!editRow.rhp_client_status}
-                onChange={(v) =>
-                  setEditRow((s) => ({ ...s, rhp_client_status: v }))
-                }
-              />
-              <Toggle
-                label="Peer Contact Opt-In?"
-                value={!!editRow.peer_contact_opt_in}
-                onChange={(v) =>
-                  setEditRow((s) => ({ ...s, peer_contact_opt_in: v }))
-                }
-              />
-            </div>
-
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-              <Button variant="ghost" onClick={() => setEditRow(null)}>
+              <Button variant="ghost" onClick={closeMailingEdit}>
                 Cancel
               </Button>
-              <Button onClick={handleEditSave}>Save</Button>
+              <Button onClick={handleMailingEditSave} disabled={mlLoading}>
+                Save
+              </Button>
             </div>
           </div>
         </Modal>
       )}
-
-      {/* Delete Modal */}
-      {deleteRow && (
-        <Modal title="Delete RSVP" onClose={() => setDeleteRow(null)}>
+      {mlDeleteRow && (
+        <Modal title="Delete Signup" onClose={closeMailingDelete}>
           <div style={{ display: "grid", gap: 12 }}>
-            <div>Are you sure you want to delete:</div>
+            <div>Delete signup for:</div>
             <div style={{ fontWeight: 800 }}>
-              {deleteRow.first_name} {deleteRow.last_name}
+              {mlDeleteRow.first_name} {mlDeleteRow.last_name}
             </div>
-            <div style={{ color: "#6b7280" }}>{deleteRow.email}</div>
+            <div style={{ color: "#6b7280" }}>{mlDeleteRow.email}</div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button variant="ghost" onClick={() => setDeleteRow(null)}>
+              <Button variant="ghost" onClick={closeMailingDelete}>
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleDeleteConfirm}>
+              <Button variant="danger" onClick={handleMailingDeleteConfirm} disabled={mlLoading}>
                 Delete
               </Button>
             </div>
           </div>
         </Modal>
+      )}
+        </>
+      ) : (
+        <>
+          {/* Filters / Export */}
+          <section style={card}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.4fr 0.8fr 0.8fr 1.6fr auto",
+                gap: 12,
+                alignItems: "end",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 13, fontWeight: 500 }}>Event</label>
+                <select
+                  value={selectedEventId}
+                  onChange={(e) => {
+                    setSelectedEventId(e.target.value || "");
+                    setPage(0);
+                    setSelectedId(null);
+                  }}
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "8px 10px",
+                    fontSize: 14,
+                    outline: "none",
+                  }}
+                >
+                  <option value="">Select an event…</option>
+                  {events.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <LabeledInput
+                label="From date"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+              <LabeledInput
+                label="To date"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+              <LabeledInput
+                label="Search (fuzzy)"
+                placeholder="Army, Vietnam, name, phone…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <Button onClick={exportAll} variant="secondary">
+                Export CSV
+              </Button>
+            </div>
+
+            {/* filter pills */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+              {branchFilter && (
+                <Pill onClear={() => setBranchFilter("")} label={`Branch: ${branchFilter}`} />
+              )}
+              {eraFilter && <Pill onClear={() => setEraFilter("")} label={`Era: ${eraFilter}`} />}
+              {clientFilter === "yes" && (
+                <Pill onClear={() => setClientFilter("")} label="RHP Clients: Yes" />
+              )}
+              {contactFilter === "yes" && (
+                <Pill onClear={() => setContactFilter("")} label="Peer Contact: Yes" />
+              )}
+              {(branchFilter ||
+                eraFilter ||
+                clientFilter ||
+                contactFilter ||
+                fromDate ||
+                toDate ||
+                search) && (
+                <Pill kind="reset" onClear={clearAllFilters} label="Clear all filters" />
+              )}
+            </div>
+          </section>
+
+          {!selectedEventId ? (
+            <section style={card}>
+              <div style={{ color: "#6b7280", fontWeight: 600 }}>
+                Select an event to view RSVPs.
+              </div>
+            </section>
+          ) : (
+            <>
+              <section style={card}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 16,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 18, color: THEME.green }}>Insights</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {selectedEventName && (
+                      <div style={{ color: "#6b7280", fontSize: 13 }}>
+                        Showing data for {selectedEventName}
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => setInsightsCollapsed((prev) => !prev)}
+                      style={{ minWidth: 120 }}
+                    >
+                      {insightsCollapsed ? "Show insights" : "Hide insights"}
+                    </Button>
+                  </div>
+                </div>
+
+                {insightsCollapsed ? (
+                  <div style={{ color: "#6b7280", fontStyle: "italic" }}>
+                    Insights collapsed. Use the toggle above to expand.
+                  </div>
+                ) : isTurkeyEvent ? (
+                  <>
+                    {ringCards}
+                    {branchEraBreakdowns}
+                    <BreakdownCard title="Slot Utilization">
+                      {slotSummaries.length === 0 ? (
+                        <div style={{ color: "#6b7280" }}>No slot data</div>
+                      ) : (
+                        <div style={{ display: "grid", gap: 12 }}>
+                          {slotSummaries.map(({ label, count, capacity, percent }) => (
+                            <div key={label} style={{ display: "grid", gap: 6 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <span>{label}</span>
+                                <span>
+                                  {count} / {capacity}
+                                </span>
+                              </div>
+                              <Progress value={percent} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </BreakdownCard>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: 16,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <StatCard
+                        title={isWhiteChristmasEvent ? "Families registered" : "Families"}
+                        value={familyCount}
+                      />
+                      <StatCard title="Tickets claimed" value={ticketsTotal} />
+                    </div>
+                    {ringCards}
+                    {branchEraBreakdowns}
+                  </>
+                )}
+              </section>
+
+              <section style={card}>
+                <div style={toolbarRow}>
+                  <div style={{ color: "#374151" }}>
+                    <strong>Page {page + 1}</strong> of{" "}
+                    <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong> •{" "}
+                    <strong>{total}</strong> total
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Button
+                      variant="ghost"
+                      disabled={page === 0 || loading}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    >
+                      Prev
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={
+                        loading || page + 1 >= Math.max(1, Math.ceil(total / PAGE_SIZE))
+                      }
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next
+                    </Button>
+                    {selectedRow && (
+                      <>
+                        <Button variant="ghost" onClick={() => openEdit(selectedRow)}>
+                          Edit
+                        </Button>
+                        <Button variant="danger" onClick={() => openDelete(selectedRow)}>
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead
+                      style={{ position: "sticky", top: 0, background: THEME.white, zIndex: 1 }}
+                    >
+                      <tr>
+                        {[
+                          "Created",
+                          "Event",
+                          "Slot",
+                          "Name",
+                          "Email",
+                          "Phone",
+                          "Status",
+                          "Branch(es)",
+                          "Era / Eras",
+                          "City/State",
+                        ].map((h) => (
+                          <th key={h} style={th}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={10} style={{ padding: 16 }}>
+                            Loading…
+                          </td>
+                        </tr>
+                      ) : rows.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} style={{ padding: 16 }}>
+                            No results
+                          </td>
+                        </tr>
+                      ) : (
+                        rows.map((r) => {
+                          const isSel = selectedId === r.id;
+                          const green = !!r.peer_contact_opt_in;
+                          return (
+                            <tr
+                              key={r.id}
+                              onClick={() => onRowClick(r.id)}
+                              style={{
+                                borderBottom: "1px solid #f3f4f6",
+                                background: isSel
+                                  ? "#DCF7E6"
+                                  : green
+                                  ? THEME.rowHighlight
+                                  : "#fff",
+                                cursor: "pointer",
+                                outline: isSel ? `2px solid ${THEME.green}` : "none",
+                              }}
+                            >
+                              <td style={td}>{fmtDate(r.created_at)}</td>
+                              <td style={td}>{r.event_name}</td>
+                              <td style={td}>{r.slot_label}</td>
+                              <td style={td}>
+                                <strong>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</strong>
+                              </td>
+                              <td style={td}>{r.email}</td>
+                              <td style={td}>{r.phone}</td>
+                              <td style={td}>{r.status}</td>
+                              <td style={td}>
+                                {Array.isArray(r.branch_of_service)
+                                  ? r.branch_of_service.join(", ")
+                                  : r.branch_of_service ?? ""}
+                              </td>
+                              <td style={td}>
+                                <div>{r.era}</div>
+                                <div style={{ color: "#6b7280", fontSize: 12 }}>
+                                  {Array.isArray(r.era_list)
+                                    ? r.era_list.join(", ")
+                                    : r.era_list ?? ""}
+                                </div>
+                              </td>
+                              <td style={td}>{[r.city, r.state].filter(Boolean).join(", ")}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ marginTop: 8, color: "#374151", fontSize: 12 }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 12,
+                      height: 12,
+                      background: THEME.rowHighlight,
+                      border: "1px solid #cfe7db",
+                      marginRight: 6,
+                      verticalAlign: "middle",
+                    }}
+                  />
+                  Rows highlighted in green requested a peer contact.
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* Edit Modal */}
+          {editRow && (
+            <Modal title="Edit RSVP" onClose={() => setEditRow(null)}>
+              <div style={{ display: "grid", gap: 12 }}>
+                <div style={twoCol}>
+                  <Field label="First name">
+                    <input
+                      value={editRow.first_name || ""}
+                      onChange={(e) => setEditRow((s) => ({ ...s, first_name: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="Last name">
+                    <input
+                      value={editRow.last_name || ""}
+                      onChange={(e) => setEditRow((s) => ({ ...s, last_name: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                <div style={twoCol}>
+                  <Field label="Email">
+                    <input
+                      value={editRow.email || ""}
+                      onChange={(e) => setEditRow((s) => ({ ...s, email: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="Phone">
+                    <input
+                      value={editRow.phone || ""}
+                      onChange={(e) => setEditRow((s) => ({ ...s, phone: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                <Field label="Address 1">
+                  <input
+                    value={editRow.address1 || ""}
+                    onChange={(e) => setEditRow((s) => ({ ...s, address1: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Address 2">
+                  <input
+                    value={editRow.address2 || ""}
+                    onChange={(e) => setEditRow((s) => ({ ...s, address2: e.target.value }))}
+                  />
+                </Field>
+                <div style={threeCol}>
+                  <Field label="City">
+                    <input
+                      value={editRow.city || ""}
+                      onChange={(e) => setEditRow((s) => ({ ...s, city: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="State">
+                    <input
+                      value={editRow.state || ""}
+                      onChange={(e) => setEditRow((s) => ({ ...s, state: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="ZIP">
+                    <input
+                      value={editRow.postal_code || ""}
+                      onChange={(e) =>
+                        setEditRow((s) => ({ ...s, postal_code: e.target.value }))
+                      }
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Family Size">
+                  <input
+                    type="number"
+                    min={1}
+                    value={editRow.family_size ?? ""}
+                    onChange={(e) =>
+                      setEditRow((s) => ({
+                        ...s,
+                        family_size: e.target.value === "" ? "" : Number(e.target.value),
+                      }))
+                    }
+                  />
+                </Field>
+
+                <div style={threeCol}>
+                  <Toggle
+                    label="RHP Client?"
+                    value={!!editRow.rhp_client_status}
+                    onChange={(v) =>
+                      setEditRow((s) => ({ ...s, rhp_client_status: v }))
+                    }
+                  />
+                  <Toggle
+                    label="Peer Contact Opt-In?"
+                    value={!!editRow.peer_contact_opt_in}
+                    onChange={(v) =>
+                      setEditRow((s) => ({ ...s, peer_contact_opt_in: v }))
+                    }
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+                  <Button variant="ghost" onClick={() => setEditRow(null)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleEditSave}>Save</Button>
+                </div>
+              </div>
+            </Modal>
+          )}
+
+          {/* Delete Modal */}
+          {deleteRow && (
+            <Modal title="Delete RSVP" onClose={() => setDeleteRow(null)}>
+              <div style={{ display: "grid", gap: 12 }}>
+                <div>Are you sure you want to delete:</div>
+                <div style={{ fontWeight: 800 }}>
+                  {deleteRow.first_name} {deleteRow.last_name}
+                </div>
+                <div style={{ color: "#6b7280" }}>{deleteRow.email}</div>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  <Button variant="ghost" onClick={() => setDeleteRow(null)}>
+                    Cancel
+                  </Button>
+                  <Button variant="danger" onClick={handleDeleteConfirm}>
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          )}
+        </>
       )}
     </div>
   );
@@ -1222,6 +2085,28 @@ function Chips({ map, onChipClick }) {
           </span>
           <span>{label}</span>
         </button>
+      ))}
+    </div>
+  );
+}
+
+function ChipsList({ list }) {
+  if (!list || list.length === 0) return <span style={{ color: "#6b7280" }}>—</span>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {list.map((item, idx) => (
+        <span
+          key={`${item}-${idx}`}
+          style={{
+            padding: "4px 8px",
+            borderRadius: 999,
+            border: "1px solid #d1d5db",
+            fontSize: 12,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item}
+        </span>
       ))}
     </div>
   );

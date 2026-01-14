@@ -21,6 +21,8 @@ import TurkeyDropRSVP from './pages/turkeydrop';
 import TurkeyDrop2025 from './pages/turkeydrop/turkeydrop2025';
 import WhiteChristmas from './pages/whitechristmas/index.jsx';
 import WhiteChristmasThankYou from './pages/whitechristmas/thankyou.jsx';
+import MailingListSignup from './pages/signup';
+import SignupThankYou from './pages/signup/thankyou';
 
 const Root = () => (
   <React.StrictMode>
@@ -75,6 +77,8 @@ const Root = () => (
                 path="/whitechristmas/thankyou"
                 element={<WhiteChristmasThankYou />}
               />
+              <Route path="/signup" element={<MailingListSignup />} />
+              <Route path="/signup/thankyou" element={<SignupThankYou />} />
               <Route path="/admin/rsvps" element={<TurkeyDashboard />} />
 
               {/* Auth */}

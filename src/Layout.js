@@ -11,10 +11,13 @@ const Layout = () => {
   const navigate = useNavigate();
   const { user, profile } = useUser();
 
-  // Routes that should hide the site chrome (tabs + welcome + auth buttons)
-  const hideChrome =
-    location.pathname.startsWith('/turkeydrop') ||
-    location.pathname.startsWith('/whitechristmas');
+  const publicPrefixes = ['/turkeydrop', '/whitechristmas', '/signup'];
+  const isPublicPath = publicPrefixes.some((prefix) =>
+    location.pathname.startsWith(prefix)
+  );
+
+  // Hide chrome for public pages and whenever no user is logged in.
+  const hideChrome = isPublicPath || !user;
 
   const tabs = ['/', '/history', '/analytics', '/dashboard'];
   const currentTab = tabs.includes(location.pathname) ? tabs.indexOf(location.pathname) : 0;

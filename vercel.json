@@ -24,6 +24,15 @@
     },
 
     {
+      "source": "/signup",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/signup/thankyou",
+      "destination": "/index.html"
+    },
+
+    {
       "source": "/r/:shortCode",
       "destination": "/api/redirect/:shortCode"
     },

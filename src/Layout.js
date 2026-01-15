@@ -1,43 +1,29 @@
 // src/Layout.js
 import React from 'react';
 import { Tabs, Tab, Box, Button } from '@mui/material';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useUser } from './Components/useUser';
 import { supabase } from './utils/supabaseClient';
 
-const Layout = () => {
+const tabs = ['/', '/history', '/analytics', '/dashboard'];
+
+const AppLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile } = useUser();
 
-  const publicPrefixes = ['/turkeydrop', '/whitechristmas', '/signup'];
-  const isPublicPath = publicPrefixes.some((prefix) =>
-    location.pathname.startsWith(prefix)
-  );
+  const currentTab = tabs.includes(location.pathname)
+    ? tabs.indexOf(location.pathname)
+    : 0;
 
-  // Hide chrome for public pages and whenever no user is logged in.
-  const hideChrome = isPublicPath || !user;
-
-  const tabs = ['/', '/history', '/analytics', '/dashboard'];
-  const currentTab = tabs.includes(location.pathname) ? tabs.indexOf(location.pathname) : 0;
-
-  if (hideChrome) {
-    // Minimal wrapper for the public RSVP flow
-    return (
-      <Box sx={{ px: { xs: 2, md: 6 }, py: { xs: 2, md: 4 }, width: '100%' }}>
-        <Box sx={{ width: '100%' }}>
-          <Outlet />
-        </Box>
-      </Box>
-    );
-  }
-
-  // Default app layout (with tabs + user area)
   return (
     <Box sx={{ px: 6, py: 4, width: '100%' }}>
       <Box sx={{ mb: 3 }}>
-        <Tabs value={currentTab} onChange={(_, newVal) => navigate(tabs[newVal])} centered>
+        <Tabs
+          value={currentTab}
+          onChange={(_, newVal) => navigate(tabs[newVal])}
+          centered
+        >
           <Tab label="Generator" />
           <Tab label="History" />
           <Tab label="Analytics" />
@@ -61,11 +47,12 @@ const Layout = () => {
             Logout
           </Button>
         ) : (
-          <Button component={Link} to="/login">Login</Button>
+          <Button component={Link} to="/login">
+            Login
+          </Button>
         )}
       </Box>
 
-      {/* Force content to full-width grid */}
       <Box sx={{ width: '100%' }}>
         <Outlet />
       </Box>
@@ -73,4 +60,6 @@ const Layout = () => {
   );
 };
 
-export default Layout;
+export const PublicLayout = () => <Outlet />;
+
+export default AppLayout;

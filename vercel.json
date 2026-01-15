@@ -31,6 +31,18 @@
       "source": "/signup/thankyou",
       "destination": "/index.html"
     },
+    {
+      "source": "/open-house",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/open-house/thankyou",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/openhouse",
+      "destination": "/index.html"
+    },
 
     {
       "source": "/r/:shortCode",

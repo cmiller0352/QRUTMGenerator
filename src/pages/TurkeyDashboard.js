@@ -7,6 +7,15 @@ const PAGE_SIZE = 25;
 const VIEW = "v_rsvps_admin";
 const BASE_TABLE = "rsvps";
 const FALLBACK_SLOT_CAPACITY = 80;
+const OPEN_HOUSE_EVENT_ID = "open-house-2026";
+const OPEN_HOUSE_EVENT_NAME = "Open House (2026)";
+const OPEN_HOUSE_EVENT_DATE = "2026-03-26T00:00:00Z";
+const OPEN_HOUSE_CAPACITY = 100;
+const OPEN_HOUSE_EVENT = {
+  id: OPEN_HOUSE_EVENT_ID,
+  name: OPEN_HOUSE_EVENT_NAME,
+  date_utc: OPEN_HOUSE_EVENT_DATE,
+};
 
 const THEME = {
   green: "#006633",
@@ -157,10 +166,13 @@ export default function TurkeyDashboard() {
     () => events.find((e) => e.id === selectedEventId) || null,
     [events, selectedEventId]
   );
-  const selectedEventName = selectedEvent?.name || "";
+  const selectedEventName =
+    selectedEvent?.name ||
+    (selectedEventId === OPEN_HOUSE_EVENT_ID ? OPEN_HOUSE_EVENT_NAME : "");
   const eventIdentifier = (selectedEventName || "").toLowerCase().trim();
   const isTurkeyEvent = eventIdentifier.includes("turkey drop");
   const isWhiteChristmasEvent = eventIdentifier.includes("white christmas");
+  const isOpenHouseEvent = selectedEventId === OPEN_HOUSE_EVENT_ID;
 
   const buildQuery = (selectCols = "*") => {
     if (!selectedEventId) return null;
@@ -226,8 +238,13 @@ export default function TurkeyDashboard() {
       }
 
       if (!isMounted) return;
-      console.log("Admin dashboard events:", data); // temporary debug
-      setEvents(data || []);
+      const normalized = (data || []).map((ev) =>
+        ev.id === OPEN_HOUSE_EVENT_ID ? { ...ev, name: OPEN_HOUSE_EVENT_NAME } : ev
+      );
+      const hasOpenHouse = normalized.some((ev) => ev.id === OPEN_HOUSE_EVENT_ID);
+      const merged = hasOpenHouse ? normalized : [OPEN_HOUSE_EVENT, ...normalized];
+      console.log("Admin dashboard events:", merged); // temporary debug
+      setEvents(merged);
     }
     loadEvents();
     return () => {
@@ -878,6 +895,10 @@ export default function TurkeyDashboard() {
   const contactPct = contactCounts.total
     ? Math.round((contactCounts.yes / contactCounts.total) * 100)
     : 0;
+  const openHousePercentUsed =
+    OPEN_HOUSE_CAPACITY > 0
+      ? Math.min(100, Math.round(((familyCount || 0) / OPEN_HOUSE_CAPACITY) * 100))
+      : 0;
   const slotSummaries = useMemo(() => {
     const countKeys = Object.keys(slotCounts || {});
     const capacityKeys = Object.keys(slotCapacities || {});
@@ -896,6 +917,37 @@ export default function TurkeyDashboard() {
       return { label, count, capacity, percent };
     });
   }, [slotCounts, slotCapacities]);
+  const openHouseSummaryCard = (
+    <BreakdownCard title="Open House RSVP Summary">
+      <div style={{ display: "grid", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontWeight: 600,
+            color: "#374151",
+          }}
+        >
+          <span>Total RSVPs</span>
+          <span>{familyCount}</span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontWeight: 600,
+            color: "#374151",
+          }}
+        >
+          <span>Capacity used</span>
+          <span>
+            {openHousePercentUsed}% ({familyCount} / {OPEN_HOUSE_CAPACITY})
+          </span>
+        </div>
+        <Progress value={openHousePercentUsed} />
+      </div>
+    </BreakdownCard>
+  );
   const ringCards = (
     <div
       style={{
@@ -1660,6 +1712,12 @@ export default function TurkeyDashboard() {
                         </div>
                       )}
                     </BreakdownCard>
+                  </>
+                ) : isOpenHouseEvent ? (
+                  <>
+                    <div style={{ marginBottom: 16 }}>{openHouseSummaryCard}</div>
+                    {ringCards}
+                    {branchEraBreakdowns}
                   </>
                 ) : (
                   <>

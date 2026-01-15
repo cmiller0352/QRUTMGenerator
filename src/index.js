@@ -8,7 +8,7 @@ import theme from './theme';
 import App from './App';
 import HistoryPage from './pages/HistoryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import Layout from './Layout';
+import AppLayout, { PublicLayout } from './Layout';
 import DashboardPage from './pages/DashboardPage';
 import ThankYouPage from './pages/turkeydrop/thankyou';
 import AuthProvider from './Components/AuthProvider';
@@ -23,6 +23,8 @@ import WhiteChristmas from './pages/whitechristmas/index.jsx';
 import WhiteChristmasThankYou from './pages/whitechristmas/thankyou.jsx';
 import MailingListSignup from './pages/signup';
 import SignupThankYou from './pages/signup/thankyou';
+import OpenHouseThankYou from './pages/openhouse/thankyou';
+import OpenHouseRsvpPage from './pages/openhouse';
 
 const Root = () => (
   <React.StrictMode>
@@ -31,7 +33,7 @@ const Root = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Layout />}>
+            <Route path="/" element={<AppLayout />}>
               <Route
                 index
                 element={
@@ -68,9 +70,12 @@ const Root = () => (
                 }
               />
 
-              {/* 👇 Public RSVP route */}
-              <Route path="turkeydrop" element={<TurkeyDropRSVP />} />
-              <Route path="turkeydrop2025/thankyou" element={<ThankYouPage />} />
+              <Route path="admin/rsvps" element={<TurkeyDashboard />} />
+            </Route>
+
+            <Route element={<PublicLayout />}>
+              <Route path="/turkeydrop" element={<TurkeyDropRSVP />} />
+              <Route path="/turkeydrop2025/thankyou" element={<ThankYouPage />} />
               <Route path="/turkeydrop2025" element={<TurkeyDrop2025 />} />
               <Route path="/whitechristmas" element={<WhiteChristmas />} />
               <Route
@@ -79,10 +84,9 @@ const Root = () => (
               />
               <Route path="/signup" element={<MailingListSignup />} />
               <Route path="/signup/thankyou" element={<SignupThankYou />} />
-              <Route path="/admin/rsvps" element={<TurkeyDashboard />} />
-
-              {/* Auth */}
-              <Route path="login" element={<LoginPage />} />
+              <Route path="/open-house" element={<OpenHouseRsvpPage />} />
+              <Route path="/open-house/thankyou" element={<OpenHouseThankYou />} />
+              <Route path="/login" element={<LoginPage />} />
             </Route>
           </Routes>
         </AuthProvider>

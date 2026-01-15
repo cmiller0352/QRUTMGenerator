@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
 import ShieldIMG from "../../assets/rhp-shield.png";
+import ShieldFooterIMG from "../../assets/shield.png";
 
 // Turnstile
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
@@ -504,6 +505,83 @@ export default function MailingListSignup() {
           </article>
         </section>
       </main>
+      <RHPSiteFooter />
     </>
+  );
+}
+
+function RHPSiteFooter() {
+  return (
+    <footer className="tdp-footer" role="contentinfo">
+      <div className="tdp-footer__inner">
+        <div className="tdp-footer__brand">
+          <img
+            src={ShieldFooterIMG}
+            alt=""
+            aria-hidden="true"
+            className="tdp-footer__shield"
+            decoding="async"
+          />
+          <div className="tdp-footer__brandtext">
+            <div className="tdp-footer__title">Road Home Program</div>
+            <div className="tdp-footer__org">
+              The National Center of Excellence for Veterans and Their Families
+              at Rush
+            </div>
+            <div className="tdp-footer__contact">
+              1645 W. Jackson Blvd., Suite 602, Chicago, IL 60612
+              <span className="tdp-dot" aria-hidden>
+                •
+              </span>
+              <a href="tel:13129428387">(312) 942-8387 (VETS)</a>
+            </div>
+          </div>
+        </div>
+
+        <nav className="tdp-footer__nav" aria-label="Footer">
+          <a href="https://roadhomeprogram.org/family-center/">
+            Help for Families
+          </a>
+          <a href="https://roadhomeprogram.org/get-care/">Get Care</a>
+          <a href="https://roadhomeprogram.org/accelerated-treatment-program/">
+            Accelerated Treatment Program
+          </a>
+          <a href="https://roadhomeprogram.org/outpatient-program/">
+            Outpatient Program
+          </a>
+          <a href="https://roadhomeprogram.org/outreach-and-events/">
+            Outreach and Events
+          </a>
+          <a href="https://roadhomeprogram.org/contact-us/">
+            General Information
+          </a>
+          <a
+            href="https://www.rush.edu/website-privacy-statement"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Privacy Statement
+          </a>
+          <a
+            href="https://www.rush.edu/disclaimer"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Disclaimer
+          </a>
+          <a
+            href="https://www.rush.edu/sites/default/files/rush-nondiscrimination-policy.pdf"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Nondiscrimination Policy
+          </a>
+        </nav>
+
+        <div className="tdp-footer__legal">
+          © {new Date().getFullYear()} Road Home Program at Rush.
+        </div>
+      </div>
+    </footer>
   );
 }

@@ -74,7 +74,6 @@ function MultiChipGroup({ label, ariaLabel, options, values, setValues, id }) {
 }
 
 export default function OpenHouseRsvpPage() {
-  const [rsvpCount, setRsvpCount] = useState(null);
   const [countError, setCountError] = useState(false);
 
   const [firstName, setFirstName] = useState("");
@@ -83,6 +82,7 @@ export default function OpenHouseRsvpPage() {
   const [phone, setPhone] = useState("");
   const [digits, setDigits] = useState("");
   const [status, setStatus] = useState(STATUS_OPTIONS[0]);
+  const [familySize, setFamilySize] = useState(1);
   const [eras, setEras] = useState([]);
   const [branches, setBranches] = useState([]);
   const [peerContact, setPeerContact] = useState(false);
@@ -96,6 +96,9 @@ export default function OpenHouseRsvpPage() {
   const [scriptReady, setScriptReady] = useState(false);
   const [widgetId, setWidgetId] = useState(null);
   const [captchaToken, setCaptchaToken] = useState("");
+  const [slotCapacity, setSlotCapacity] = useState(CAPACITY);
+  const [seatsTaken, setSeatsTaken] = useState(null);
+  const [seatsRemaining, setSeatsRemaining] = useState(null);
   const showServiceFields = SERVICE_STATUSES.has(status);
 
   const markReady = useCallback((reason) => {
@@ -114,13 +117,23 @@ export default function OpenHouseRsvpPage() {
     document.title = pageTitle;
   }, [pageTitle]);
 
-  const loadCount = useCallback(async () => {
-    const { count, error } = await supabase
-      .from("rsvps")
-      .select("*", { count: "exact", head: true })
-      .eq("event_id", EVENT_ID);
-    if (!error && typeof count === "number") {
-      setRsvpCount(count);
+  const loadCapacity = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("v_slot_capacity")
+      .select("capacity, seats_taken, seats_remaining, is_full")
+      .eq("slot_id", SLOT_ID)
+      .maybeSingle();
+
+    if (!error && data) {
+      setSlotCapacity(
+        typeof data.capacity === "number" ? data.capacity : CAPACITY
+      );
+      setSeatsTaken(
+        typeof data.seats_taken === "number" ? data.seats_taken : 0
+      );
+      setSeatsRemaining(
+        typeof data.seats_remaining === "number" ? data.seats_remaining : CAPACITY
+      );
       setCountError(false);
     } else {
       setCountError(true);
@@ -128,8 +141,8 @@ export default function OpenHouseRsvpPage() {
   }, []);
 
   useEffect(() => {
-    loadCount();
-  }, [loadCount]);
+    loadCapacity();
+  }, [loadCapacity]);
 
   // Turnstile script loader
   useEffect(() => {
@@ -235,6 +248,7 @@ export default function OpenHouseRsvpPage() {
       "email",
       "phone",
       "status",
+      "familySize",
       "eras",
       "branches",
       "peerContact",
@@ -245,13 +259,23 @@ export default function OpenHouseRsvpPage() {
     node?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
-  const filled = typeof rsvpCount === "number" ? rsvpCount : null;
+  const clampFamilySize = useCallback((val) => {
+    const next = Number(val);
+    if (!Number.isFinite(next)) return 1;
+    return Math.min(10, Math.max(1, Math.round(next)));
+  }, []);
+
+  const filled = typeof seatsTaken === "number" ? seatsTaken : null;
+  const remaining = typeof seatsRemaining === "number" ? seatsRemaining : null;
+  const effectiveCapacity =
+    typeof slotCapacity === "number" ? slotCapacity : CAPACITY;
+
   const pct =
     typeof filled === "number"
-      ? Math.min(100, Math.round((filled / CAPACITY) * 100))
+      ? Math.min(100, Math.round((filled / effectiveCapacity) * 100))
       : 0;
-  const remaining =
-    typeof filled === "number" ? Math.max(0, CAPACITY - filled) : null;
+  const maxGuestCount =
+    typeof remaining === "number" ? Math.max(1, Math.min(10, remaining)) : 10;
 
   useEffect(() => {
     if (!showServiceFields) {
@@ -271,6 +295,16 @@ export default function OpenHouseRsvpPage() {
     if (!email.trim() || !isEmail(email.trim())) nextErrors.email = "Required";
     if (digits.length !== 10) nextErrors.phone = "Required";
     if (!status) nextErrors.status = "Required";
+    if (
+      !Number.isFinite(familySize) ||
+      familySize < 1 ||
+      familySize > maxGuestCount
+    ) {
+      nextErrors.familySize =
+        typeof seatsRemaining === "number"
+          ? `Guest count must be between 1 and ${maxGuestCount}.`
+          : "Guest count must be between 1 and 10.";
+    }
     if (showServiceFields) {
       if (!eras.length) nextErrors.eras = "Select at least one era.";
       if (!branches.length) nextErrors.branches = "Select at least one branch.";
@@ -295,7 +329,7 @@ export default function OpenHouseRsvpPage() {
     const payload = {
       event_id: EVENT_ID,
       slot_id: SLOT_ID,
-      family_size: 1,
+      family_size: familySize,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       email: email.trim(),
@@ -332,6 +366,12 @@ export default function OpenHouseRsvpPage() {
       if (data?.ok || data?.success) {
         // eslint-disable-next-line no-console
         console.log("[OpenHouse RSVP] mailing_list result", data?.mailing_list);
+        await loadCapacity();
+        try {
+          sessionStorage.setItem("openhouse:familySize", String(familySize));
+        } catch {
+          // ignore storage issues
+        }
         window.location.href = "/open-house/thankyou";
         return;
       }
@@ -390,11 +430,10 @@ export default function OpenHouseRsvpPage() {
             </div>
             <div className="tdp-progress-meta">
               <span>
-                RSVPs {typeof filled === "number" ? filled : "—"} / {CAPACITY}
+                Seats reserved {typeof filled === "number" ? filled : "—"} / {effectiveCapacity}
               </span>
               <span>
-                Remaining spots:{" "}
-                {typeof remaining === "number" ? remaining : "—"}
+                Seats remaining: {typeof remaining === "number" ? remaining : "—"}
               </span>
             </div>
             {countError && (
@@ -483,6 +522,78 @@ export default function OpenHouseRsvpPage() {
                       </option>
                     ))}
                   </select>
+                </label>
+
+                <label data-field="familySize" className="tdp-status">
+                  <span style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                    Guest Count (including you)*
+                    <span aria-live="polite">Party Size: {familySize}</span>
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="tdp-ghost-btn"
+                      onClick={() => setFamilySize((prev) => clampFamilySize(prev - 1))}
+                      aria-label="Decrease guest count"
+                      disabled={familySize <= 1}
+                      style={{
+                        border: "1px solid #cfe5d8",
+                        background: "#e6f2eb",
+                        color: "#006633",
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                      }}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="range"
+                      min={1}
+                      max={maxGuestCount}
+                      value={familySize}
+                      onChange={(e) =>
+                        setFamilySize(
+                          clampFamilySize(Math.min(maxGuestCount, Number(e.target.value)))
+                        )
+                      }
+                      aria-valuemin={1}
+                      aria-valuemax={maxGuestCount}
+                      aria-valuenow={familySize}
+                      aria-label="Guest count slider"
+                      style={{
+                        flex: 1,
+                        accentColor: "#006633",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="tdp-ghost-btn"
+                      onClick={() =>
+                        setFamilySize((prev) =>
+                          Math.min(maxGuestCount, clampFamilySize(prev + 1))
+                        )
+                      }
+                      aria-label="Increase guest count"
+                      disabled={familySize >= maxGuestCount}
+                      style={{
+                        border: "1px solid #cfe5d8",
+                        background: "#e6f2eb",
+                        color: "#006633",
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="tdp-muted" style={{ display: "block", marginTop: 4 }}>
+                    Minimum 1 guest, maximum 10 total attendees.
+                  </span>
+                  {errors.familySize && (
+                    <div className="tdp-err">{errors.familySize}</div>
+                  )}
                 </label>
 
                 {showServiceFields && (

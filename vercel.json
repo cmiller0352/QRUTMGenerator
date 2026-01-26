@@ -39,10 +39,6 @@
       "source": "/open-house/thankyou",
       "destination": "/index.html"
     },
-    {
-      "source": "/openhouse",
-      "destination": "/index.html"
-    },
 
     {
       "source": "/r/:shortCode",

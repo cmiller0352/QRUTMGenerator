@@ -119,6 +119,12 @@ export default function TurkeyDashboard() {
   const [familyCount, setFamilyCount] = useState(0);
   const [ticketsTotal, setTicketsTotal] = useState(0);
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
+  const [reportingLoading, setReportingLoading] = useState(false);
+  const [reportingError, setReportingError] = useState("");
+  const [reportingSeatsReserved, setReportingSeatsReserved] = useState(0);
+  const [reportingHouseholds, setReportingHouseholds] = useState(0);
+  const [reportingSeatsRemaining, setReportingSeatsRemaining] = useState(0);
+  const [reportingAvgPartySize, setReportingAvgPartySize] = useState(0);
 
   // selection & modals
   const [selectedId, setSelectedId] = useState(null);
@@ -316,6 +322,59 @@ export default function TurkeyDashboard() {
     clientFilter,
     contactFilter,
   ]);
+
+  useEffect(() => {
+    if (activeView !== "rsvps" || !selectedEventId) {
+      setReportingLoading(false);
+      setReportingError("");
+      setReportingSeatsReserved(0);
+      setReportingHouseholds(0);
+      setReportingSeatsRemaining(0);
+      setReportingAvgPartySize(0);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      setReportingLoading(true);
+      setReportingError("");
+      const reserved = Number(ticketsTotal) || 0;
+      const households = Number(familyCount) || 0;
+      const avg = households > 0 ? reserved / households : 0;
+      if (!cancelled) {
+        setReportingSeatsReserved(reserved);
+        setReportingHouseholds(households);
+        setReportingAvgPartySize(avg);
+      }
+      try {
+        const { data, error } = await supabase
+          .from("v_slot_capacity")
+          .select("seats_remaining, capacity, event_id")
+          .eq("event_id", selectedEventId);
+        if (error) throw error;
+        const remaining = (data || []).reduce((sum, row) => {
+          const seats = Number(row?.seats_remaining);
+          return sum + (Number.isFinite(seats) ? seats : 0);
+        }, 0);
+        if (!cancelled) {
+          setReportingSeatsRemaining(remaining);
+          setReportingError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setReportingSeatsRemaining(0);
+          setReportingError(err?.message || "Failed to load seat capacity");
+        }
+      } finally {
+        if (!cancelled) {
+          setReportingLoading(false);
+        }
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, selectedEventId, ticketsTotal, familyCount]);
 
   useEffect(() => {
     if (activeView !== "rsvps") return;
@@ -897,7 +956,7 @@ export default function TurkeyDashboard() {
     : 0;
   const openHousePercentUsed =
     OPEN_HOUSE_CAPACITY > 0
-      ? Math.min(100, Math.round(((familyCount || 0) / OPEN_HOUSE_CAPACITY) * 100))
+      ? Math.min(100, Math.round(((ticketsTotal || 0) / OPEN_HOUSE_CAPACITY) * 100))
       : 0;
   const slotSummaries = useMemo(() => {
     const countKeys = Object.keys(slotCounts || {});
@@ -941,8 +1000,11 @@ export default function TurkeyDashboard() {
         >
           <span>Capacity used</span>
           <span>
-            {openHousePercentUsed}% ({familyCount} / {OPEN_HOUSE_CAPACITY})
+            {openHousePercentUsed}% ({ticketsTotal} seats / {OPEN_HOUSE_CAPACITY})
           </span>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+          Households (RSVP records): {familyCount}
         </div>
         <Progress value={openHousePercentUsed} />
       </div>
@@ -1715,6 +1777,53 @@ export default function TurkeyDashboard() {
                   </>
                 ) : isOpenHouseEvent ? (
                   <>
+                    <div style={{ marginBottom: 16 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#374151",
+                          marginBottom: 8,
+                        }}
+                      >
+                        Reporting views (seats-based)
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: 16,
+                        }}
+                      >
+                        <StatCard
+                          title="Seats reserved"
+                          value={reportingSeatsReserved}
+                        />
+                        <StatCard
+                          title="Households"
+                          value={reportingHouseholds}
+                        />
+                        <StatCard
+                          title="Seats remaining"
+                          value={
+                            reportingLoading
+                              ? "Loading..."
+                              : reportingSeatsRemaining
+                          }
+                        />
+                        <StatCard
+                          title="Avg party size"
+                          value={Number.isFinite(reportingAvgPartySize)
+                            ? reportingAvgPartySize.toFixed(2)
+                            : "0.00"}
+                        />
+                      </div>
+                      {reportingError && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                          {reportingError}
+                        </div>
+                      )}
+                    </div>
                     <div style={{ marginBottom: 16 }}>{openHouseSummaryCard}</div>
                     {ringCards}
                     {branchEraBreakdowns}

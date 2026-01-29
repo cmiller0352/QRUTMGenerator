@@ -35,7 +35,7 @@ const EVENT_DETAILS = {
   title: "Road Home Program Open House",
   date: "March 26, 2026",
   time: "3:30–6:30 PM",
-  address: "323 S. Paulina St., Suite 200, Chicago, IL 60612",
+  address: "325 S. Paulina St., Ste 200, Chicago, IL 60612",
   note: "Parking validation provided and easy access to public transit.",
 };
 

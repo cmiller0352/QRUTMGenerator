@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
+import LocalParkingOutlinedIcon from "@mui/icons-material/LocalParkingOutlined";
 import ShieldIMG from "../../assets/rhp-shield.png";
 import ShieldFooterIMG from "../../assets/shield.png";
 import { supabase } from "../../utils/supabaseClient";
@@ -8,6 +9,8 @@ const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 const EVENT_ID = "open-house-2026";
 const SLOT_ID = "8b5cbb3f-8db6-4027-a40f-76ca69bf0335";
 const CAPACITY = 100;
+const PARKING_MAPS_URL =
+  "https://www.google.com/maps/search/?api=1&query=1640+W.+Jackson+Blvd.,+Chicago,+IL+60612";
 
 const STATUS_OPTIONS = [
   "Veteran",
@@ -456,6 +459,28 @@ export default function OpenHouseRsvpPage() {
               Meet our Veteran Outreach Team, tour the space, and learn how Road
               Home Program supports service members and military families.
             </p>
+            <section className="tdp-parking" aria-label="Parking Information">
+              <h3 className="tdp-parking-title">
+                <LocalParkingOutlinedIcon fontSize="small" aria-hidden="true" />
+                <span>Parking Information</span>
+              </h3>
+              <p className="tdp-parking-copy">
+                <a href={PARKING_MAPS_URL} target="_blank" rel="noreferrer">
+                  Garage Address: 1640 W. Jackson Blvd., Chicago, IL 60612.
+                </a>{" "}
+                Located on the corner of Paulina and Jackson. The entrance is
+                located on the north side of Jackson Blvd. All parking at this
+                lot will be validated.
+              </p>
+              <a
+                className="tdp-parking-link"
+                href={PARKING_MAPS_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View on Google Maps
+              </a>
+            </section>
             <form className="tdp-form" onSubmit={handleSubmit} noValidate>
               <fieldset disabled={submitting} style={{ border: 0, padding: 0 }}>
                 <div className="tdp-row">

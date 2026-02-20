@@ -39,6 +39,12 @@ export default function OpenHouseThankYou() {
         <p className="tdp-card-sub">
           You are on the list. We will email you when Open House details are ready.
         </p>
+        <p className="tdp-help" style={{ marginTop: 8 }}>
+          We look forward to seeing you on March 26, 2026, from 3:30-6:30 PM.
+        </p>
+        <p style={{ marginTop: 8 }}>
+          <a href="/open-house">Back to Open House page</a>
+        </p>
 
         {partySize && (
           <div className="tdp-block">

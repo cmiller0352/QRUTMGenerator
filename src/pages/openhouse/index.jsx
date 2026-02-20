@@ -94,6 +94,7 @@ export default function OpenHouseRsvpPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageCode, setMessageCode] = useState("");
   const [errors, setErrors] = useState({});
 
   const [scriptReady, setScriptReady] = useState(false);
@@ -290,6 +291,7 @@ export default function OpenHouseRsvpPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+    setMessageCode("");
     setSubmitting(true);
 
     const nextErrors = {};
@@ -325,6 +327,7 @@ export default function OpenHouseRsvpPage() {
     if (!token && window.turnstile && widgetId) token = await getTurnstileToken();
     if (!token) {
       setMessage("❌ Human verification failed. Please try again.");
+      setMessageCode("");
       setSubmitting(false);
       return;
     }
@@ -358,15 +361,14 @@ export default function OpenHouseRsvpPage() {
       });
       if (error) {
         setMessage(
-          `❌ ${
-            error.message ||
-            "Something went wrong. Please email events@roadhomeprogram.org."
-          }`
+          "❌ Something went wrong. Please email events@roadhomeprogram.org."
         );
+        setMessageCode("");
         refreshTurnstile();
         return;
       }
-      if (data?.ok || data?.success) {
+      if (data?.ok === true) {
+        setMessageCode("");
         // eslint-disable-next-line no-console
         console.log("[OpenHouse RSVP] mailing_list result", data?.mailing_list);
         await loadCapacity();
@@ -384,14 +386,11 @@ export default function OpenHouseRsvpPage() {
           "Something went wrong. Please email events@roadhomeprogram.org."
         }`
       );
+      setMessageCode(data?.code || "");
       refreshTurnstile();
-    } catch (err) {
-      setMessage(
-        `❌ ${
-          err.message ||
-          "Something went wrong. Please email events@roadhomeprogram.org."
-        }`
-      );
+    } catch {
+      setMessage("❌ Something went wrong. Please email events@roadhomeprogram.org.");
+      setMessageCode("");
       refreshTurnstile();
     } finally {
       setSubmitting(false);
@@ -522,6 +521,7 @@ export default function OpenHouseRsvpPage() {
                       }}
                       aria-invalid={!!errors.email}
                     />
+                    {errors.email && <div className="tdp-err">{errors.email}</div>}
                   </label>
                   <label data-field="phone">
                     Phone*
@@ -531,6 +531,7 @@ export default function OpenHouseRsvpPage() {
                       placeholder="(###) ###-####"
                       aria-invalid={!!errors.phone}
                     />
+                    {errors.phone && <div className="tdp-err">{errors.phone}</div>}
                   </label>
                 </div>
 
@@ -686,7 +687,21 @@ export default function OpenHouseRsvpPage() {
                   <span>Add me to the Road Home Program mailing list.</span>
                 </label>
 
-                {message && <div className="tdp-msg">{message}</div>}
+                {message && (
+                  <>
+                    <div className="tdp-msg">{message}</div>
+                    {messageCode === "DUPLICATE_RSVP" && (
+                      <button
+                        type="button"
+                        className="tdp-ghost-btn"
+                        onClick={() => window.location.reload()}
+                        style={{ marginTop: 8 }}
+                      >
+                        Refresh page
+                      </button>
+                    )}
+                  </>
+                )}
 
                 <div
                   id="turnstile-container"

@@ -1,7 +1,7 @@
 // src/pages/TurkeyDashboard.js
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { supabase } from "../utils/supabaseClient";
+import { supabase } from "../../../utils/supabaseClient";
 
 const PAGE_SIZE = 25;
 const VIEW = "v_rsvps_admin";
@@ -102,6 +102,10 @@ export default function TurkeyDashboard() {
   const [eraFilter, setEraFilter] = useState("");
   const [clientFilter, setClientFilter] = useState(""); // "", "yes", "no"
   const [contactFilter, setContactFilter] = useState(""); // "", "yes", "no"
+  const [checkedInOnly, setCheckedInOnly] = useState(false);
+  const [checkInLoadingById, setCheckInLoadingById] = useState({});
+  const [checkInNotice, setCheckInNotice] = useState("");
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   // data
   const [rows, setRows] = useState([]);
@@ -258,6 +262,23 @@ export default function TurkeyDashboard() {
     };
   }, []);
 
+  const enrichRowsWithCheckin = useCallback(async (list) => {
+    const base = Array.isArray(list) ? list : [];
+    if (!base.length) return [];
+    const ids = base.map((r) => r.id).filter(Boolean);
+    if (!ids.length) return base;
+    const { data, error } = await supabase
+      .from("checkins")
+      .select("rsvp_id")
+      .in("rsvp_id", ids);
+    if (error) return base;
+    const checkedIds = new Set((data || []).map((row) => row.rsvp_id));
+    return base.map((row) => ({
+      ...row,
+      checked_in: row.checked_in === true || checkedIds.has(row.id),
+    }));
+  }, []);
+
   // fetch table
   useEffect(() => {
     if (activeView !== "rsvps") {
@@ -278,10 +299,29 @@ export default function TurkeyDashboard() {
         const to = from + PAGE_SIZE - 1;
         const query = buildQuery("*");
         if (!query) return;
+        if (checkedInOnly) {
+          const { data: checkedRows, error: checkedError } = await supabase
+            .from("checkins")
+            .select("rsvp_id");
+          if (checkedError) throw checkedError;
+          const checkedIds = Array.from(
+            new Set((checkedRows || []).map((row) => row.rsvp_id).filter(Boolean))
+          );
+          if (checkedIds.length === 0) {
+            if (!cancelled) {
+              setRows([]);
+              setTotal(0);
+              setSelectedId(null);
+            }
+            return;
+          }
+          query.in("id", checkedIds);
+        }
         const { data, error, count } = await query.range(from, to);
         if (error) throw error;
+        const enrichedRows = await enrichRowsWithCheckin(data ?? []);
         if (!cancelled) {
-          setRows(data ?? []);
+          setRows(enrichedRows);
           setTotal(count ?? 0);
           setSelectedId(null);
         }
@@ -306,6 +346,9 @@ export default function TurkeyDashboard() {
     eraFilter,
     clientFilter,
     contactFilter,
+    checkedInOnly,
+    refreshNonce,
+    enrichRowsWithCheckin,
   ]);
 
   useEffect(() => {
@@ -321,6 +364,7 @@ export default function TurkeyDashboard() {
     eraFilter,
     clientFilter,
     contactFilter,
+    checkedInOnly,
   ]);
 
   useEffect(() => {
@@ -521,6 +565,7 @@ export default function TurkeyDashboard() {
     eraFilter,
     clientFilter,
     contactFilter,
+    checkedInOnly,
   ]);
 
   // export CSV (full fields)
@@ -779,6 +824,51 @@ export default function TurkeyDashboard() {
 
   // selection & actions
   const onRowClick = (id) => setSelectedId((cur) => (cur === id ? null : id));
+  const handleCheckIn = async (row) => {
+    if (!row?.id) return;
+    setCheckInNotice("");
+    setCheckInLoadingById((prev) => ({ ...prev, [row.id]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-checkin", {
+        body: { rsvp_id: row.id },
+      });
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error("Check-in function invoke failed:", error);
+        const details = `Check-in failed (${error.code || "no-code"}): ${
+          error.message || "Unknown error"
+        }`;
+        setCheckInNotice(details);
+        alert(details);
+        return;
+      }
+      if (data?.ok !== true) {
+        // eslint-disable-next-line no-console
+        console.error("Check-in function response error:", data);
+        const details = `Check-in failed (${data?.code || "no-code"}): ${
+          data?.error || "Unknown error"
+        }`;
+        setCheckInNotice(details);
+        alert(details);
+        return;
+      }
+      setRows((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, checked_in: true } : r))
+      );
+      setCheckInNotice("Checked in.");
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Check-in write failed:", err);
+      const details = `Check-in failed (${err?.code || "no-code"}): ${
+        err?.message || "Unknown error"
+      }`;
+      setCheckInNotice(details);
+      alert(details);
+    } finally {
+      setCheckInLoadingById((prev) => ({ ...prev, [row.id]: false }));
+      setRefreshNonce((n) => n + 1);
+    }
+  };
   const openEdit = (row) => setEditRow({ ...row });
   const closeEdit = () => setEditRow(null);
   const openDelete = (row) => setDeleteRow(row);
@@ -943,6 +1033,7 @@ export default function TurkeyDashboard() {
     setEraFilter("");
     setClientFilter("");
     setContactFilter("");
+    setCheckedInOnly(false);
     setSearch("");
     setFromDate("");
     setToDate("");
@@ -1102,6 +1193,14 @@ export default function TurkeyDashboard() {
               </button>
             );
           })}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              window.location.href = "/admin/checkin";
+            }}
+          >
+            Check-in Mode
+          </Button>
         </div>
       </header>
 
@@ -1630,12 +1729,12 @@ export default function TurkeyDashboard() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.4fr 0.8fr 0.8fr 1.6fr auto",
+                gridTemplateColumns: "minmax(0,1.4fr) minmax(0,0.8fr) minmax(0,0.8fr) minmax(0,1.6fr) auto",
                 gap: 12,
                 alignItems: "end",
               }}
             >
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
                 <label style={{ fontSize: 13, fontWeight: 500 }}>Event</label>
                 <select
                   value={selectedEventId}
@@ -1650,6 +1749,8 @@ export default function TurkeyDashboard() {
                     padding: "8px 10px",
                     fontSize: 14,
                     outline: "none",
+                    width: "100%",
+                    minWidth: 0,
                   }}
                 >
                   <option value="">Select an event…</option>
@@ -1678,9 +1779,12 @@ export default function TurkeyDashboard() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <Button onClick={exportAll} variant="secondary">
+              <Button onClick={exportAll} variant="secondary" style={{ justifySelf: "start" }}>
                 Export CSV
               </Button>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Toggle label="Checked-in only" value={checkedInOnly} onChange={setCheckedInOnly} />
             </div>
 
             {/* filter pills */}
@@ -1695,10 +1799,14 @@ export default function TurkeyDashboard() {
               {contactFilter === "yes" && (
                 <Pill onClear={() => setContactFilter("")} label="Peer Contact: Yes" />
               )}
+              {checkedInOnly && (
+                <Pill onClear={() => setCheckedInOnly(false)} label="Checked-in only" />
+              )}
               {(branchFilter ||
                 eraFilter ||
                 clientFilter ||
                 contactFilter ||
+                checkedInOnly ||
                 fromDate ||
                 toDate ||
                 search) && (
@@ -1856,6 +1964,9 @@ export default function TurkeyDashboard() {
                     <strong>Page {page + 1}</strong> of{" "}
                     <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong> •{" "}
                     <strong>{total}</strong> total
+                    {checkInNotice ? (
+                      <span style={{ marginLeft: 10, color: "#6b7280" }}>{checkInNotice}</span>
+                    ) : null}
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <Button
@@ -1901,6 +2012,9 @@ export default function TurkeyDashboard() {
                           "Email",
                           "Phone",
                           "Status",
+                          "Check-in",
+                          "Tracking",
+                          "Attribution",
                           "Branch(es)",
                           "Era / Eras",
                           "City/State",
@@ -1914,13 +2028,13 @@ export default function TurkeyDashboard() {
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan={10} style={{ padding: 16 }}>
+                          <td colSpan={13} style={{ padding: 16 }}>
                             Loading…
                           </td>
                         </tr>
                       ) : rows.length === 0 ? (
                         <tr>
-                          <td colSpan={10} style={{ padding: 16 }}>
+                          <td colSpan={13} style={{ padding: 16 }}>
                             No results
                           </td>
                         </tr>
@@ -1952,6 +2066,55 @@ export default function TurkeyDashboard() {
                               <td style={td}>{r.email}</td>
                               <td style={td}>{r.phone}</td>
                               <td style={td}>{r.status}</td>
+                              <td style={td}>
+                                {r.checked_in ? (
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "4px 8px",
+                                      borderRadius: 999,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      background: "#DCF7E6",
+                                      border: "1px solid #A7E3BE",
+                                      color: THEME.green,
+                                    }}
+                                  >
+                                    Checked in
+                                  </span>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    disabled={!!checkInLoadingById[r.id]}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCheckIn(r);
+                                    }}
+                                    style={{ padding: "6px 10px", fontSize: 12 }}
+                                  >
+                                    {checkInLoadingById[r.id] ? "Checking in..." : "Check in"}
+                                  </Button>
+                                )}
+                              </td>
+                              <td style={td}>
+                                <div style={{ fontSize: 12, color: "#374151" }}>
+                                  <div>{r.order_id || "—"}</div>
+                                  {r.attendee_index !== null && r.attendee_index !== undefined ? (
+                                    <div style={{ color: "#6b7280" }}>idx: {r.attendee_index}</div>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td style={td}>
+                                {r.utm_source || r.utm_medium || r.utm_campaign ? (
+                                  <div style={{ fontSize: 12, color: "#374151" }}>
+                                    <div>{r.utm_source || "—"}</div>
+                                    <div>{r.utm_medium || "—"}</div>
+                                    <div>{r.utm_campaign || "—"}</div>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: "#6b7280" }}>—</span>
+                                )}
+                              </td>
                               <td style={td}>
                                 {Array.isArray(r.branch_of_service)
                                   ? r.branch_of_service.join(", ")
@@ -2130,7 +2293,7 @@ export default function TurkeyDashboard() {
 
 function LabeledInput({ label, ...props }) {
   return (
-    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#374151" }}>
+    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#374151", minWidth: 0 }}>
       <span style={{ fontWeight: 600 }}>{label}</span>
       <input
         {...props}
@@ -2140,6 +2303,8 @@ function LabeledInput({ label, ...props }) {
           border: "1px solid #d1d5db",
           outline: "none",
           background: "#fff",
+          width: "100%",
+          minWidth: 0,
           ...(props.style || {}),
         }}
       />

@@ -14,7 +14,8 @@ import ThankYouPage from './pages/turkeydrop/thankyou';
 import AuthProvider from './Components/AuthProvider';
 import LoginPage from './pages/LoginPage';
 import PrivateRoute from './Components/PrivateRoute';
-import TurkeyDashboard from './pages/TurkeyDashboard'
+import TurkeyDashboard from './pages/turkeydrop/turkeydrop2025/TurkeyDashboard'
+import CheckinMode from './pages/turkeydrop/turkeydrop2025/CheckinMode'
 
 // 👇 NEW: RSVP page route (public)
 import TurkeyDropRSVP from './pages/turkeydrop';
@@ -25,6 +26,10 @@ import MailingListSignup from './pages/signup';
 import SignupThankYou from './pages/signup/thankyou';
 import OpenHouseThankYou from './pages/openhouse/thankyou';
 import OpenHouseRsvpPage from './pages/openhouse';
+import ChowCall from './pages/sd/ChowCall';
+import SaluteSocialJimmys from './pages/sd/SaluteSocialJimmys';
+import SaluteSocialMcps from './pages/sd/SaluteSocialMcps';
+import SdThankYou from './pages/sd/ThankYou';
 
 const Root = () => (
   <React.StrictMode>
@@ -71,6 +76,7 @@ const Root = () => (
               />
 
               <Route path="admin/rsvps" element={<TurkeyDashboard />} />
+              <Route path="admin/checkin" element={<CheckinMode />} />
             </Route>
 
             <Route element={<PublicLayout />}>
@@ -86,6 +92,13 @@ const Root = () => (
               <Route path="/signup/thankyou" element={<SignupThankYou />} />
               <Route path="/open-house" element={<OpenHouseRsvpPage />} />
               <Route path="/open-house/thankyou" element={<OpenHouseThankYou />} />
+              <Route path="/sd/chow-call" element={<ChowCall />} />
+              <Route
+                path="/sd/salute-social-jimmys"
+                element={<SaluteSocialJimmys />}
+              />
+              <Route path="/sd/salute-social-mcps" element={<SaluteSocialMcps />} />
+              <Route path="/sd/thank-you" element={<SdThankYou />} />
               <Route path="/login" element={<LoginPage />} />
             </Route>
           </Routes>

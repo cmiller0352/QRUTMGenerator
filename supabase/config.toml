@@ -1,0 +1,6 @@
+[functions.admin-checkin]
+verify_jwt = false
+
+[functions.admin-uncheckin]
+verify_jwt = false
+

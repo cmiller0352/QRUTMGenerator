@@ -39,6 +39,14 @@
       "source": "/open-house/thankyou",
       "destination": "/index.html"
     },
+    {
+      "source": "/mst-webinar-series-2026",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mst-webinar-series-2026/thankyou",
+      "destination": "/index.html"
+    },
 
     {
       "source": "/r/:shortCode",

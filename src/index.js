@@ -26,6 +26,8 @@ import MailingListSignup from './pages/signup';
 import SignupThankYou from './pages/signup/thankyou';
 import OpenHouseThankYou from './pages/openhouse/thankyou';
 import OpenHouseRsvpPage from './pages/openhouse';
+import MstWebinarSeries2026Page from './pages/mst-webinar-series-2026';
+import MstWebinarSeries2026ThankYou from './pages/mst-webinar-series-2026/thankyou';
 import ChowCall from './pages/sd/ChowCall';
 import SaluteSocialJimmys from './pages/sd/SaluteSocialJimmys';
 import SaluteSocialMcps from './pages/sd/SaluteSocialMcps';
@@ -92,6 +94,14 @@ const Root = () => (
               <Route path="/signup/thankyou" element={<SignupThankYou />} />
               <Route path="/open-house" element={<OpenHouseRsvpPage />} />
               <Route path="/open-house/thankyou" element={<OpenHouseThankYou />} />
+              <Route
+                path="/mst-webinar-series-2026"
+                element={<MstWebinarSeries2026Page />}
+              />
+              <Route
+                path="/mst-webinar-series-2026/thankyou"
+                element={<MstWebinarSeries2026ThankYou />}
+              />
               <Route path="/sd/chow-call" element={<ChowCall />} />
               <Route
                 path="/sd/salute-social-jimmys"

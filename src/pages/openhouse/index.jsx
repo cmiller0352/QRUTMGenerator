@@ -77,6 +77,13 @@ function MultiChipGroup({ label, ariaLabel, options, values, setValues, id }) {
 }
 
 export default function OpenHouseRsvpPage() {
+  const params = new URLSearchParams(window.location.search);
+  const utm_source = params.get("utm_source");
+  const utm_medium = params.get("utm_medium");
+  const utm_campaign = params.get("utm_campaign");
+  const utm_term = params.get("utm_term");
+  const utm_content = params.get("utm_content");
+
   const [countError, setCountError] = useState(false);
 
   const [firstName, setFirstName] = useState("");
@@ -348,6 +355,12 @@ export default function OpenHouseRsvpPage() {
       interests: ["Open House updates"],
       consent,
       page_path: window.location.pathname,
+      referrer: document.referrer || null,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_term,
+      utm_content,
       source: "open-house-rsvp",
       cf_turnstile_token: token,
     };

@@ -8,8 +8,8 @@ export const SD_EVENTS = {
     title: "San Diego Chow Call",
     dateLabel: "Tuesday, April 14, 2026",
     timeLabel: "6-8 PM PT",
-    venueName: "Novo Brazil Brewing Mission Valley",
-    addressLines: ["1640 Camino Del Rio N", "San Diego, CA 92108"],
+    venueName: "Novo Brazil Brewing Imperial Beach",
+    addressLines: ["535 Florence St", "Imperial Beach, CA 91932"],
     mode: "family",
     limits: { maxPartySize: 4 },
   },
@@ -42,4 +42,3 @@ export const SD_EVENTS = {
     limits: { maxAttendees: 6 },
   },
 };
-

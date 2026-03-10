@@ -90,6 +90,7 @@ export default function SdRsvpPage({ event }) {
   const isFamilyMode = event?.mode === "family";
   const maxAttendees = Math.max(1, event?.limits?.maxAttendees || 1);
   const maxPartySize = Math.max(1, event?.limits?.maxPartySize || 4);
+  const hasCapacityTracking = Number.isFinite(event?.limits?.capacityTotal) && !!event?.slot_id;
 
   const [attendees, setAttendees] = useState([initialAttendee()]);
   const [partySize, setPartySize] = useState(1);
@@ -103,10 +104,75 @@ export default function SdRsvpPage({ event }) {
   const [scriptReady, setScriptReady] = useState(false);
   const [widgetId, setWidgetId] = useState(null);
   const [captchaToken, setCaptchaToken] = useState("");
+  const [slotCapacity, setSlotCapacity] = useState(
+    Number.isFinite(event?.limits?.capacityTotal) ? Number(event.limits.capacityTotal) : null
+  );
+  const [seatsTaken, setSeatsTaken] = useState(null);
+  const [seatsRemaining, setSeatsRemaining] = useState(null);
+  const [capacityLoading, setCapacityLoading] = useState(false);
+  const [capacityLoadError, setCapacityLoadError] = useState("");
 
   useEffect(() => {
     if (event?.title) document.title = event.title;
   }, [event?.title]);
+
+  const loadCapacity = useCallback(async () => {
+    if (!hasCapacityTracking) {
+      setCapacityLoadError("");
+      return;
+    }
+
+    setCapacityLoading(true);
+    setCapacityLoadError("");
+
+    const { data, error } = await supabase
+      .from("v_slot_capacity")
+      .select("capacity, seats_taken, seats_remaining, is_full")
+      .eq("slot_id", event.slot_id)
+      .maybeSingle();
+
+    if (error) {
+      setCapacityLoadError("Unable to load live seat availability right now.");
+      setCapacityLoading(false);
+      return;
+    }
+
+    const fallbackCapacity = Number.isFinite(event?.limits?.capacityTotal)
+      ? Number(event.limits.capacityTotal)
+      : null;
+
+    const nextCapacity = Number(data?.capacity);
+    const nextTaken = Number(data?.seats_taken);
+    const nextRemaining = Number(data?.seats_remaining);
+
+    setSlotCapacity(Number.isFinite(nextCapacity) ? nextCapacity : fallbackCapacity);
+    setSeatsTaken(Number.isFinite(nextTaken) ? nextTaken : null);
+    setSeatsRemaining(
+      Number.isFinite(nextRemaining)
+        ? Math.max(0, nextRemaining)
+        : (Number.isFinite(fallbackCapacity) ? fallbackCapacity : null)
+    );
+    setCapacityLoading(false);
+  }, [event?.limits?.capacityTotal, event?.slot_id, hasCapacityTracking]);
+
+  useEffect(() => {
+    loadCapacity();
+  }, [loadCapacity]);
+
+  const totalSeats = Number.isFinite(slotCapacity) ? Number(slotCapacity) : null;
+  const remainingSeats = Number.isFinite(seatsRemaining) ? Math.max(0, Number(seatsRemaining)) : null;
+  const takenSeats = Number.isFinite(seatsTaken)
+    ? Math.max(0, Number(seatsTaken))
+    : (totalSeats !== null && remainingSeats !== null ? Math.max(0, totalSeats - remainingSeats) : null);
+  const isSoldOut = hasCapacityTracking && remainingSeats !== null && remainingSeats <= 0;
+  const isLimitedSpots = hasCapacityTracking && remainingSeats !== null && remainingSeats > 0 && remainingSeats <= 10;
+  const maxPartyByRemaining = isFamilyMode && remainingSeats !== null
+    ? Math.max(0, Math.min(maxPartySize, remainingSeats))
+    : maxPartySize;
+  const partySizeOverRemaining = isFamilyMode && remainingSeats !== null && partySize > maxPartyByRemaining;
+  const pctFilled = totalSeats && takenSeats !== null
+    ? Math.min(100, Math.max(0, Math.round((takenSeats / totalSeats) * 100)))
+    : 0;
 
   useEffect(() => {
     if (!SITE_KEY) return;
@@ -293,7 +359,11 @@ export default function SdRsvpPage({ event }) {
     });
 
     if (isFamilyMode) {
-      if (!Number.isFinite(partySize) || partySize < 1 || partySize > maxPartySize) {
+      if (isSoldOut) {
+        nextErrors.partySize = "This event is currently full.";
+      } else if (partySizeOverRemaining && remainingSeats !== null) {
+        nextErrors.partySize = `Only ${remainingSeats} seat${remainingSeats === 1 ? "" : "s"} remaining. Reduce party size to continue.`;
+      } else if (!Number.isFinite(partySize) || partySize < 1 || partySize > maxPartySize) {
         nextErrors.partySize = `Party size must be between 1 and ${maxPartySize}.`;
       }
     }
@@ -317,61 +387,61 @@ export default function SdRsvpPage({ event }) {
     }
 
     const orderId = generateTrackingId();
+    const attendeePayload = attendees.map((attendee, index) => ({
+      attendee_id: generateTrackingId(),
+      attendee_index: index,
+      first_name: attendee.firstName.trim(),
+      last_name: attendee.lastName.trim(),
+      email: attendee.email.trim(),
+      phone: attendee.phone,
+      status: attendee.status,
+      branch_of_service: attendee.branches,
+      era_list: SERVICE_STATUSES.has(attendee.status) ? attendee.eras : [],
+    }));
+
+    // Submit all attendees in one request to prevent partial saves from per-attendee loops.
+    const payload = {
+      event_id: event.event_id,
+      slot_id: event.slot_id,
+      order_id: orderId,
+      attendees: attendeePayload,
+      consent: true,
+      page_path: window.location.pathname,
+      referrer: document.referrer || null,
+      ...utm,
+      cf_turnstile_token: token,
+    };
+    if (isFamilyMode) payload.family_size = partySize;
 
     try {
-      for (let i = 0; i < attendees.length; i += 1) {
-        const attendee = attendees[i];
-        const attendeeId = generateTrackingId();
+      const { data, error } = await supabase.functions.invoke("reserve-rsvp", {
+        body: payload,
+      });
 
-        const payload = {
-          event_id: event.event_id,
-          slot_id: event.slot_id,
-          first_name: attendee.firstName.trim(),
-          last_name: attendee.lastName.trim(),
-          email: attendee.email.trim(),
-          phone: attendee.phone,
-          status: attendee.status,
-          branch_of_service: attendee.branches,
-          era_list: SERVICE_STATUSES.has(attendee.status) ? attendee.eras : [],
-          consent: true,
-          order_id: orderId,
-          attendee_id: attendeeId,
-          attendee_index: i,
-          page_path: window.location.pathname,
-          referrer: document.referrer || null,
-          ...utm,
-          cf_turnstile_token: token,
-        };
-        if (isFamilyMode) payload.family_size = partySize;
+      let responseData = data && typeof data === "object" ? data : null;
+      if (!responseData && error) {
+        responseData = await extractResponseFromError(error);
+      }
 
-        const { data, error } = await supabase.functions.invoke("reserve-rsvp", {
-          body: payload,
-        });
-
-        let responseData = data && typeof data === "object" ? data : null;
-        if (!responseData && error) {
-          responseData = await extractResponseFromError(error);
+      if (error || responseData?.ok === false) {
+        const code = responseData?.code || "";
+        const serverMessage =
+          responseData?.error ||
+          error?.message ||
+          "Something went wrong. Please review and try again.";
+        setMessageCode(code);
+        setMessage(serverMessage);
+        if (code === "CAPACITY_REACHED") {
+          await loadCapacity();
         }
+        refreshTurnstile();
+        return;
+      }
 
-        if (error && !responseData) {
-          setMessage(`Attendee ${i + 1}: Something went wrong. Please email events@roadhomeprogram.org.`);
-          refreshTurnstile();
-          return;
-        }
-
-        if (responseData?.ok === false) {
-          const code = responseData.code || "";
-          setMessageCode(code);
-          setMessage(`Attendee ${i + 1}: ${responseData.error || "Something went wrong. Please review and try again."}`);
-          refreshTurnstile();
-          return;
-        }
-
-        if (responseData?.ok !== true) {
-          setMessage(`Attendee ${i + 1}: Something went wrong. Please email events@roadhomeprogram.org.`);
-          refreshTurnstile();
-          return;
-        }
+      if (responseData?.ok !== true) {
+        setMessage("Something went wrong. Please email events@roadhomeprogram.org.");
+        refreshTurnstile();
+        return;
       }
 
       const params = new URLSearchParams({
@@ -421,6 +491,43 @@ export default function SdRsvpPage({ event }) {
               </React.Fragment>
             ))}
           </p>
+
+          {hasCapacityTracking && (
+            <div className="tdp-block" style={{ marginTop: 16 }}>
+              <h3>Capacity</h3>
+              {capacityLoading && (
+                <p className="tdp-help" style={{ marginTop: 0 }}>
+                  Loading live seat availability...
+                </p>
+              )}
+              {!capacityLoading && totalSeats !== null && (
+                <>
+                  <div className="tdp-progress" aria-hidden="true">
+                    <div className="tdp-progress-bar" style={{ width: `${pctFilled}%` }} />
+                  </div>
+                  <div className="tdp-progress-meta">
+                    <span>{takenSeats ?? 0} / {totalSeats} reserved</span>
+                    <strong>{remainingSeats ?? "—"} seats left</strong>
+                  </div>
+                </>
+              )}
+              {capacityLoadError && (
+                <p className="tdp-help" style={{ color: "#a12626", marginTop: 8 }}>
+                  {capacityLoadError}
+                </p>
+              )}
+              {isSoldOut && (
+                <div className="tdp-msg" style={{ marginTop: 8 }}>
+                  This event is currently full.
+                </div>
+              )}
+              {!isSoldOut && isLimitedSpots && (
+                <p className="tdp-help" style={{ color: "#8a5a00", marginTop: 8 }}>
+                  Limited spots left. RSVP soon.
+                </p>
+              )}
+            </div>
+          )}
 
           <div
             className="tdp-block"
@@ -592,6 +699,7 @@ export default function SdRsvpPage({ event }) {
                     Party size*
                     <select
                       value={partySize}
+                      disabled={isSoldOut}
                       onChange={(e) => {
                         setPartySize(Number(e.target.value));
                         if (errors.partySize) {
@@ -601,12 +709,21 @@ export default function SdRsvpPage({ event }) {
                       aria-invalid={!!errors.partySize}
                     >
                       {Array.from({ length: maxPartySize }, (_, idx) => idx + 1).map((size) => (
-                        <option key={size} value={size}>
+                        <option
+                          key={size}
+                          value={size}
+                          disabled={remainingSeats !== null && size > maxPartyByRemaining}
+                        >
                           {size}
                         </option>
                       ))}
                     </select>
                     {errors.partySize && <div className="tdp-err">{errors.partySize}</div>}
+                    {!errors.partySize && partySizeOverRemaining && remainingSeats !== null && (
+                      <div className="tdp-err">
+                        Only {remainingSeats} seat{remainingSeats === 1 ? "" : "s"} remaining.
+                      </div>
+                    )}
                   </label>
                 )}
 
@@ -643,7 +760,11 @@ export default function SdRsvpPage({ event }) {
 
                 <div id="turnstile-container" style={{ height: 0, overflow: "hidden" }} />
 
-                <button className="tdp-submit" type="submit" disabled={submitting}>
+                <button
+                  className="tdp-submit"
+                  type="submit"
+                  disabled={submitting || isSoldOut || partySizeOverRemaining}
+                >
                   {submitting ? "Submitting..." : "Submit RSVP"}
                 </button>
               </fieldset>

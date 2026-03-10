@@ -252,6 +252,19 @@ export default function OpenHouseRsvpPage() {
 
   const isEmail = useCallback((val) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(val), []);
 
+  const extractResponseFromError = async (errorObj) => {
+    if (!errorObj?.context || typeof errorObj.context.json !== "function") {
+      return null;
+    }
+    try {
+      const parsed = await errorObj.context.json();
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      // ignore parse failures
+    }
+    return null;
+  };
+
   const scrollToFirstError = useCallback((errs) => {
     const order = [
       "firstName",
@@ -372,18 +385,28 @@ export default function OpenHouseRsvpPage() {
       const { data, error } = await supabase.functions.invoke("reserve-rsvp", {
         body: payload,
       });
-      if (error) {
+      let responseData = data && typeof data === "object" ? data : null;
+      if (!responseData && error) {
+        responseData = await extractResponseFromError(error);
+      }
+
+      if (error || responseData?.ok === false) {
+        setMessageCode(responseData?.code || "");
         setMessage(
-          "❌ Something went wrong. Please email events@roadhomeprogram.org."
+          `❌ ${
+            responseData?.error ||
+            error?.message ||
+            "Something went wrong. Please email events@roadhomeprogram.org."
+          }`
         );
-        setMessageCode("");
         refreshTurnstile();
         return;
       }
-      if (data?.ok === true) {
+
+      if (responseData?.ok === true) {
         setMessageCode("");
         // eslint-disable-next-line no-console
-        console.log("[OpenHouse RSVP] mailing_list result", data?.mailing_list);
+        console.log("[OpenHouse RSVP] mailing_list result", responseData?.mailing_list);
         await loadCapacity();
         try {
           sessionStorage.setItem("openhouse:familySize", String(familySize));
@@ -395,11 +418,11 @@ export default function OpenHouseRsvpPage() {
       }
       setMessage(
         `⚠️ ${
-          data?.error ||
+          responseData?.error ||
           "Something went wrong. Please email events@roadhomeprogram.org."
         }`
       );
-      setMessageCode(data?.code || "");
+      setMessageCode(responseData?.code || "");
       refreshTurnstile();
     } catch {
       setMessage("❌ Something went wrong. Please email events@roadhomeprogram.org.");

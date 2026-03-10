@@ -193,6 +193,19 @@ export default function TurkeyDropRSVP() {
 
   // helpers
   const isEmail = (v) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
+
+  const extractResponseFromError = async (errorObj) => {
+    if (!errorObj?.context || typeof errorObj.context.json !== "function") {
+      return null;
+    }
+    try {
+      const parsed = await errorObj.context.json();
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      // ignore parse failures
+    }
+    return null;
+  };
   const remaining = (s) => {
     if (!s) return 0;
     const rem = Number(s.seats_remaining);
@@ -272,16 +285,21 @@ export default function TurkeyDropRSVP() {
 
     try {
       const { data, error } = await supabase.functions.invoke("reserve-rsvp", { body: payload });
-      if (error) {
+      let responseData = data && typeof data === "object" ? data : null;
+      if (!responseData && error) {
+        responseData = await extractResponseFromError(error);
+      }
+
+      if (error || responseData?.ok === false) {
         const friendly = "Something went wrong — please refresh and try again, or call (312) 942-8387.";
-        setMessage(`❌ ${error.message || friendly}`);
+        setMessage(`❌ ${responseData?.error || error?.message || friendly}`);
         return;
       }
-      if (data?.ok || data?.success) {
+      if (responseData?.ok || responseData?.success) {
         window.location.href = "/turkeydrop/thankyou";
       } else {
         const friendly = "Something went wrong — please refresh and try again, or call (312) 942-8387.";
-        setMessage(`⚠️ ${data?.error || friendly}`);
+        setMessage(`⚠️ ${responseData?.error || friendly}`);
       }
     } catch (err) {
       const friendly = "Something went wrong — please refresh and try again, or call (312) 942-8387.";

@@ -11,7 +11,7 @@ export const SD_EVENTS = {
     venueName: "Novo Brazil Brewing Imperial Beach",
     addressLines: ["535 Florence St", "Imperial Beach, CA 91932"],
     mode: "family",
-    limits: { maxPartySize: 4 },
+    limits: { maxPartySize: 4, capacityTotal: 35 },
   },
   saluteSocialJimmys: {
     key: "sd-salute-social-jimmys",
@@ -40,5 +40,19 @@ export const SD_EVENTS = {
     addressLines: ["1107 Orange Ave", "Coronado, CA 92118"],
     mode: "multi",
     limits: { maxAttendees: 6 },
+  },
+  saluteSocialCaliforniaWildAles: {
+    key: "saluteSocialCaliforniaWildAles",
+    slug: "salute-social-california-wild-ales",
+    path: "/sd/salute-social-california-wild-ales",
+    event_id: "sd26-salute-social-california-wild-ales-2026-04-17",
+    slot_id: "feb20321-23d1-4b9f-90f3-f05d7c7d4b19",
+    title: "San Diego Salute & Social",
+    dateLabel: "Friday, April 17, 2026",
+    timeLabel: "6-8 PM PT",
+    venueName: "California Wild Ales",
+    addressLines: ["4896 Newport Ave", "San Diego, CA 92107"],
+    mode: "multi",
+    limits: { maxAttendees: 50 },
   },
 };

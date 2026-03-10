@@ -1,7 +1,7 @@
 // src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import theme from './theme';
 
@@ -31,6 +31,7 @@ import MstWebinarSeries2026ThankYou from './pages/mst-webinar-series-2026/thanky
 import ChowCall from './pages/sd/ChowCall';
 import SaluteSocialJimmys from './pages/sd/SaluteSocialJimmys';
 import SaluteSocialMcps from './pages/sd/SaluteSocialMcps';
+import SaluteSocialCaliforniaWildAles from './pages/sd/SaluteSocialCaliforniaWildAles';
 import SdThankYou from './pages/sd/ThankYou';
 
 const Root = () => (
@@ -102,12 +103,17 @@ const Root = () => (
                 path="/mst-webinar-series-2026/thankyou"
                 element={<MstWebinarSeries2026ThankYou />}
               />
+              <Route path="/sd" element={<Navigate to="/sd/chow-call" replace />} />
               <Route path="/sd/chow-call" element={<ChowCall />} />
               <Route
                 path="/sd/salute-social-jimmys"
                 element={<SaluteSocialJimmys />}
               />
               <Route path="/sd/salute-social-mcps" element={<SaluteSocialMcps />} />
+              <Route
+                path="/sd/salute-social-california-wild-ales"
+                element={<SaluteSocialCaliforniaWildAles />}
+              />
               <Route path="/sd/thank-you" element={<SdThankYou />} />
               <Route path="/login" element={<LoginPage />} />
             </Route>

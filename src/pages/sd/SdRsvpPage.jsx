@@ -564,7 +564,7 @@ export default function SdRsvpPage({ event }) {
                           <h3 style={{ margin: 0 }}>Attendee {index + 1}</h3>
                           <button
                             type="button"
-                            className="tdp-ghost-btn"
+                            className="tdp-ghost-btn tdp-ghost-btn--danger"
                             onClick={() => removeAttendee(index)}
                             disabled={attendees.length <= 1}
                           >
@@ -680,7 +680,7 @@ export default function SdRsvpPage({ event }) {
                 {isMultiMode && (
                   <button
                     type="button"
-                    className="tdp-ghost-btn"
+                    className="tdp-ghost-btn tdp-ghost-btn--add"
                     onClick={addAttendee}
                     disabled={attendees.length >= maxAttendees}
                     style={{ marginBottom: 16 }}

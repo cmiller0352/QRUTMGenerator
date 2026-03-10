@@ -9,9 +9,6 @@ import SdTeamSection from "./components/SdTeamSection";
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 
-const PROOF_NOTICE =
-  "Proof of service is required for entry. Please bring a military ID, VA ID, or other proof of service.";
-
 const STATUS_OPTIONS = [
   "Veteran",
   "Active Duty",
@@ -530,14 +527,11 @@ export default function SdRsvpPage({ event }) {
             </div>
           )}
 
-          <div
-            className="tdp-block"
-            style={{ marginTop: 24, border: "2px solid #8a6d00", background: "#fff9e6" }}
-            role="note"
-            aria-label="Proof of service notice"
-          >
-            <h3 style={{ marginTop: 0 }}>Important</h3>
-            <p style={{ marginBottom: 0 }}>{PROOF_NOTICE}</p>
+          <div style={{ marginTop: 24 }}>
+            <SdTeamSection
+              title="Meet the Team You’ll See at This Event"
+              intro="Our Veteran and Family Outreach Team will be on site to help with questions, welcome guests, and connect attendees to Road Home Program resources."
+            />
           </div>
         </section>
 
@@ -739,7 +733,7 @@ export default function SdRsvpPage({ event }) {
                       }
                     }}
                   />
-                  <span>I confirm this RSVP is accurate and I will bring proof of service.</span>
+                  <span>I confirm this RSVP is accurate.</span>
                 </label>
                 {errors.consent && <div className="tdp-err">{errors.consent}</div>}
 
@@ -781,15 +775,6 @@ export default function SdRsvpPage({ event }) {
           </article>
         </section>
       </main>
-
-      <div className="tdp-shell" style={{ marginTop: 0 }}>
-        <section className="tdp-left" style={{ gridColumn: "1 / -1" }}>
-          <SdTeamSection
-            title="Meet the Team You’ll See at This Event"
-            intro="Our San Diego outreach team will be on site to help with questions, welcome guests, and connect attendees to Road Home Program resources."
-          />
-        </section>
-      </div>
 
       <footer className="tdp-footer" role="contentinfo">
         <div className="tdp-footer__inner">

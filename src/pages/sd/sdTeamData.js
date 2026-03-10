@@ -34,7 +34,7 @@ export const sdTeamMembers = [
     fullBio:
       "Soon after, she attended Airborne School at Fort Moore/Benning with a follow-on assignment to the 82nd Airborne Division at Fort Liberty/Bragg. In 2021, Katia no-notice deployed with the 307th Brigade Support Battalion in support of Operation Allies Refuge, facilitating the withdrawal of forces from Afghanistan. Upon her return, she completed Platoon Leader time and transitioned to the Medical Operations Officer for 2-501st Parachute Infantry Regiment, 1st Brigade Combat Team. She ended her Army career as the Division Medical Supply Officer for the 82nd Airborne Division Sustainment Brigade, procuring, distributing, and maintaining medical supplies for the Division.",
     readMoreLabel: "Read more",
-    sortOrder: 2,
+    sortOrder: 6,
   },
   {
     id: "modie-lavin",
@@ -49,7 +49,7 @@ export const sdTeamMembers = [
     fullBio:
       "Modie Lavin is the Family Outreach Coordinator at Rush University Medical Center. Prior to coming to Rush, she was the Program Facilitator for Veterans at the Chicago Park District and worked closely with the Jesse Brown VA and other community service providers and organizations. Lavin chartered recreational-based programs for veterans as well as coordinated events. Lavin also directed resource fairs for veterans at various locations throughout Chicago, including a Resource Expo at Soldier Field alongside the Valor Games Midwest. Lavin and her family consistently attend ceremonies and events honoring our fallen and veterans.",
     readMoreLabel: "Read more",
-    sortOrder: 3,
+    sortOrder: 2,
   },
   {
     id: "christopher-miller",
@@ -60,11 +60,11 @@ export const sdTeamMembers = [
     quote:
       "I’ve seen what happens when mental health is neglected and ignored, and personally suffered those consequences. I have also seen what recovery looks like and what it takes to walk down that path of personal betterment. If I can help lead others down the road to recovery, and overcome their problems, I will have accomplished my mission.",
     shortBio:
-      "Chris Miller served in the United States Marine Corps for four years as a Towgunner with the 3rd Battalion, 5th Marine Regiment in Camp Pendleton, CA. He deployed twice, including service in Okinawa and throughout Southeast Asia, and later deployed to Kuwait and Iraq during the initial invasion.",
+      "Chris Miller served in the United States Marine Corps for four years as a TOW Gunner with 3rd Battalion, 5th Marine Regiment at Camp Pendleton, California. During his service he deployed multiple times, including assignments in Okinawa and throughout Southeast Asia, and later to Kuwait and Iraq during the initial invasion of Iraq.",
     fullBio:
-      "After his unit returned home from Iraq, he spent his remaining time in the service as an urban warfare instructor at the March Air Force Base SASO School. After his time in service, Chris attended culinary school while working at Our Lady of Peace mental health hospital with children in his hometown of Louisville, KY. He worked as a chef prior to coming to the Road Home Program in 2013, leaving briefly in 2018 to pursue entrepreneurial opportunities, graduate from Code Platoon, and work as a Full Stack Developer. Chris returned to the Road Home Program in 2020.",
+      "After returning from Iraq, Chris spent the remainder of his enlistment serving as an urban warfare instructor at the SASO (Stability and Support Operations) School at March Air Force Base, where he helped prepare service members for complex operational environments. Following his military service, Chris attended culinary school and worked as a chef while also supporting youth patients at Our Lady of Peace mental health hospital in his hometown of Louisville, Kentucky. Chris joined the Road Home Program in 2013. He later stepped away in 2018 to pursue entrepreneurial ventures, complete the Code Platoon coding bootcamp for veterans, and work as a full stack developer building software applications and digital systems. He returned to the Road Home Program in 2020, where he now leads digital marketing, outreach technology, and data-driven initiatives that support veteran engagement and program access. His work focuses on building modern digital infrastructure, automation systems, and outreach tools that help connect veterans, service members, and their families with the care they need.",
     readMoreLabel: "Read more",
-    sortOrder: 4,
+    sortOrder: 3,
   },
   {
     id: "alejandra-a-hernandez",
@@ -94,6 +94,6 @@ export const sdTeamMembers = [
     fullBio:
       "He completed his duty with 4th ID from Fort Hood, Texas in 2005. After his time in service, Mathius completed his Bachelor’s Degree in Nutrition and Biology from Western Illinois University, graduating with honors in 2009. While working as an AVP for BMO Harris Bank, he completed his MBA in 2013. In 2018, Mathius returned to school to complete a Master’s in Education from National Lewis University to teach high school biology. He later joined a veteran organization serving homeless veterans, which deepened his passion for helping fellow veterans. Currently Mathius is the Commander of the Veterans of Foreign War in Crystal Lake Post 12014, a member of American Legion Post 171, a Wounded Warrior Alum, and a member of Team Red, White & Blue.",
     readMoreLabel: "Read more",
-    sortOrder: 6,
+    sortOrder: 4,
   },
 ].sort((a, b) => a.sortOrder - b.sortOrder);

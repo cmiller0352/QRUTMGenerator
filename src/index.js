@@ -32,6 +32,7 @@ import ChowCall from './pages/sd/ChowCall';
 import SaluteSocialJimmys from './pages/sd/SaluteSocialJimmys';
 import SaluteSocialMcps from './pages/sd/SaluteSocialMcps';
 import SaluteSocialCaliforniaWildAles from './pages/sd/SaluteSocialCaliforniaWildAles';
+import SanDiegoSaluteAndSocial from './pages/sd/SanDiegoSaluteAndSocial';
 import SdThankYou from './pages/sd/ThankYou';
 
 const Root = () => (
@@ -105,6 +106,10 @@ const Root = () => (
               />
               <Route path="/sd" element={<Navigate to="/sd/chow-call" replace />} />
               <Route path="/sd/chow-call" element={<ChowCall />} />
+              <Route
+                path="/sandiego-salute-and-social"
+                element={<SanDiegoSaluteAndSocial />}
+              />
               <Route
                 path="/sd/salute-social-jimmys"
                 element={<SaluteSocialJimmys />}

@@ -5,6 +5,7 @@ import ShieldIMG from "../../assets/rhp-shield.png";
 import ShieldFooterIMG from "../../assets/shield.png";
 import { supabase } from "../../utils/supabaseClient";
 import { generateTrackingId } from "./tracking";
+import SdTeamSection from "./components/SdTeamSection";
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 
@@ -780,6 +781,15 @@ export default function SdRsvpPage({ event }) {
           </article>
         </section>
       </main>
+
+      <div className="tdp-shell" style={{ marginTop: 0 }}>
+        <section className="tdp-left" style={{ gridColumn: "1 / -1" }}>
+          <SdTeamSection
+            title="Meet the Team You’ll See at This Event"
+            intro="Our San Diego outreach team will be on site to help with questions, welcome guests, and connect attendees to Road Home Program resources."
+          />
+        </section>
+      </div>
 
       <footer className="tdp-footer" role="contentinfo">
         <div className="tdp-footer__inner">

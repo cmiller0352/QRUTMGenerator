@@ -47,6 +47,34 @@
       "source": "/mst-webinar-series-2026/thankyou",
       "destination": "/index.html"
     },
+    {
+      "source": "/sd",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sd/chow-call",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sandiego-salute-and-social",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sd/salute-social-jimmys",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sd/salute-social-mcps",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sd/salute-social-california-wild-ales",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sd/thank-you",
+      "destination": "/index.html"
+    },
 
     {
       "source": "/r/:shortCode",

@@ -296,8 +296,8 @@ export default function SanDiegoSaluteAndSocial() {
               compact
               previewChars={180}
               singleExpand
-              title="Meet the San Diego Team"
-              intro="The outreach team will be on site throughout the series to welcome guests, answer questions, and connect attendees to Road Home Program resources."
+              title="Meet the Team You’ll See at This Event"
+              intro="Our Veteran and Family Outreach Team will be on site to help with questions, welcome guests, and connect attendees to Road Home Program resources."
             />
           </section>
         </div>

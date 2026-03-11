@@ -4,6 +4,8 @@ import ModieLavinImage from "../../assets/Modie-Lavin.png";
 import ChristopherMillerImage from "../../assets/Chris-Miller.png";
 import AlejandraHernandezImage from "../../assets/Ale-Hernandez.png";
 import MathiusCarterImage from "../../assets/Mathius-Carter.png";
+import LukeStricevicImage from "../../assets/luke-stricevic.png";
+import DanaStricevicImage from "../../assets/dana-stricevic.png";
 
 export const sdTeamMembers = [
   {
@@ -95,5 +97,33 @@ export const sdTeamMembers = [
       "He completed his duty with 4th ID from Fort Hood, Texas in 2005. After his time in service, Mathius completed his Bachelor’s Degree in Nutrition and Biology from Western Illinois University, graduating with honors in 2009. While working as an AVP for BMO Harris Bank, he completed his MBA in 2013. In 2018, Mathius returned to school to complete a Master’s in Education from National Lewis University to teach high school biology. He later joined a veteran organization serving homeless veterans, which deepened his passion for helping fellow veterans. Currently Mathius is the Commander of the Veterans of Foreign War in Crystal Lake Post 12014, a member of American Legion Post 171, a Wounded Warrior Alum, and a member of Team Red, White & Blue.",
     readMoreLabel: "Read more",
     sortOrder: 4,
+  },
+].sort((a, b) => a.sortOrder - b.sortOrder);
+
+export const chowCallGuestMembers = [
+  {
+    id: "luke-stricevic",
+    name: "Luke Stricevic",
+    role: "AMGA Rock Guide, Co-Founder, Crux Wilderness Therapy",
+    subtitle: "USMC Veteran",
+    image: LukeStricevicImage,
+    shortBio:
+      "After serving four years in the Marine Corps, like many others, Luke struggled with transitioning from military life and searched for something that could restore meaning, purpose, and challenge outside his service.",
+    fullBio:
+      "He was introduced to rock climbing while living in Mammoth Lakes, California, by an old salty ski instructor he worked with on the mountain. After learning a few knots and getting on his first climb, Luke was hooked and found what he had been looking for. Climbing became an activity he could wrap his identity around, a way to pursue adventure, express himself, and grow in self-awareness. He believes the outdoors have real healing power and is excited to be part of the Crux team and introduce people to the mountains he holds so dear.",
+    readMoreLabel: "Read more",
+    sortOrder: 7,
+  },
+  {
+    id: "dana-stricevic",
+    name: "Dana Stricevic",
+    role: "Co-Founder and CEO, Crux Wilderness Therapy",
+    subtitle: "USMC Spouse",
+    image: DanaStricevicImage,
+    shortBio:
+      "A social worker and outdoor enthusiast, Dana co-founded Crux Wilderness Therapy to offer accessible rock climbing and community support, inspired by her husband’s experience in the mountains as a Marine Corps veteran.",
+    fullBio: "",
+    readMoreLabel: "Read more",
+    sortOrder: 8,
   },
 ].sort((a, b) => a.sortOrder - b.sortOrder);

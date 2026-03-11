@@ -537,6 +537,7 @@ export default function SdRsvpPage({ event }) {
             <SdTeamSection
               title="Meet the Team You’ll See at This Event"
               intro="Our Veteran and Family Outreach Team will be on site to help with questions, welcome guests, and connect attendees to Road Home Program resources."
+              members={event?.teamMembers}
             />
           </div>
         </section>

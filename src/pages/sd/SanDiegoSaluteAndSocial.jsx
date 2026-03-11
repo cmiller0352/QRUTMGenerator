@@ -14,9 +14,6 @@ import CaliforniaWildAlesFlyer from "../../assets/Cali Wild Ales Flyer.png";
 import { SD_EVENTS } from "./sdEvents";
 import SdTeamSection from "./components/SdTeamSection";
 
-const PROOF_NOTICE =
-  "Proof of service is required for entry. Please bring a military ID, VA ID, or other proof of service.";
-
 const eventEntries = [
   {
     event: SD_EVENTS.saluteSocialJimmys,
@@ -214,13 +211,12 @@ export default function SanDiegoSaluteAndSocial() {
             </div>
 
             <div className="sdss-hero__noteRow">
-              <div
-                className="sdss-note sdss-note--hero"
-                role="note"
-                aria-label="Proof of service notice"
-              >
-                <h3>Before You RSVP</h3>
-                <p>{PROOF_NOTICE}</p>
+              <div className="sdss-note sdss-note--hero">
+                <h3>About the Series</h3>
+                <p>
+                  These gatherings are an opportunity to meet the Road Home Program team,
+                  connect with fellow veterans, and learn more about the services we provide.
+                </p>
               </div>
 
               <div className="sdss-note sdss-note--muted">

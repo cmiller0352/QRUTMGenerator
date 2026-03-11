@@ -10,7 +10,7 @@ export const sdTeamMembers = [
     id: "joseph-zolper",
     name: "Joseph Zolper",
     role: "Manager of Veteran Outreach & Networking",
-    subtitle: "",
+    subtitle: "US Army Veteran",
     image: JosephZolperImage,
     quote:
       "As an Army Veteran and someone who has suffered from the invisible wounds of war, I can attest to the critical need of seeking mental health treatment. Through this incredible organization, I can continue serving the military community in ways that I never could have imagined. I found my road home and now I am helping others find theirs.",
@@ -25,7 +25,7 @@ export const sdTeamMembers = [
     id: "katia-woods",
     name: "Katia Woods",
     role: "Veteran Outreach Coordinator",
-    subtitle: "",
+    subtitle: "US Army Veteran",
     image: KatiaWoodsImage,
     quote:
       "As an Army veteran who served the military medical community, I serviced soldiers seeking care on foreign and domestic soil. It is an honor and a privilege to continue my service in a new capacity through the Road Home Program, providing resources to veterans, service members, and their families. With our help, your pathway to care is paved: all you need to do is take the first step towards your road home.",
@@ -55,7 +55,7 @@ export const sdTeamMembers = [
     id: "christopher-miller",
     name: "Christopher Miller",
     role: "Veteran Outreach Digital Marketing Strategist",
-    subtitle: "",
+    subtitle: "USMC Veteran",
     image: ChristopherMillerImage,
     quote:
       "I’ve seen what happens when mental health is neglected and ignored, and personally suffered those consequences. I have also seen what recovery looks like and what it takes to walk down that path of personal betterment. If I can help lead others down the road to recovery, and overcome their problems, I will have accomplished my mission.",
@@ -70,14 +70,14 @@ export const sdTeamMembers = [
     id: "alejandra-a-hernandez",
     name: "Alejandra A. Hernandez",
     role: "Veteran Outreach Coordinator",
-    subtitle: "",
+    subtitle: "USMC Veteran",
     image: AlejandraHernandezImage,
     quote:
       "As a Marine Corps veteran, I have understood the barriers to care when it comes to mental health. I’ve experienced my share of challenges since coming back home. Simply reducing barriers will allow other service members, veterans, family and friends of the military community to get the best care they deserve.",
     shortBio:
-      "Alejandra Hernandez served in the United States Marine Corps for four years as a Food Service Specialist with Marine Corps Base Camp Lejeune Headquarters and Marine Support Squadron 272 at Marine Corps Air Station New River, NC. She deployed in 2007 to Kuwait, Camp Al Asad, and Camp TQ Air Base.",
+      "Alejandra Hernandez served in the United States Marine Corps for four years as a Food Service Specialist with Marine Corps Base Camp Lejeune Headquarters and Marine Wing Support Squadron 272 at Marine Corps Air Station New River, NC. She deployed in 2007 to Kuwait, Camp Al Asad, and Camp TQ Air Base. After her unit returned home, she spent her remaining time in the service as Assistant Chief Cook.",
     fullBio:
-      "After her unit returned home, she spent her remaining time in the service as an Assistant Chief Cook. After her time in service, Alejandra attended Waubonsee Community College while working in the auto parts industry. She later earned her bachelor’s degree from the University of Illinois at Chicago and studied Sociology at UIC. She worked as a community health worker prior to joining the Road Home Program in April 2022. She is a member of the American Veterans for Equal Rights Chapter in Chicago and serves as the Chapter Secretary.",
+      "After her time in service, Alejandra attended Waubonsee Community College while working in the auto parts industry. She later earned her bachelor’s degree from the University of Illinois at Chicago and studied Sociology at UIC. She worked as a community health worker prior to joining the Road Home Program in April 2022. She is the American Veterans for Equal Rights (AVER) Chicago Chapter President and serves as the AVER National Secretary. In her free time she likes to climb, travel, and spend time with her family and dog Ace.",
     readMoreLabel: "Read more",
     sortOrder: 5,
   },
@@ -85,7 +85,7 @@ export const sdTeamMembers = [
     id: "mathius-carter-mba",
     name: "Mathius Carter, MBA",
     role: "Veteran Outreach Coordinator",
-    subtitle: "",
+    subtitle: "US Army Veteran",
     image: MathiusCarterImage,
     quote:
       "I know how hard it can be to ask for help and to find a program that works for you, so when I heard about Road Home Program and what they do for Veterans I had to get involved. Hearing the testimonies of Veterans going through the Art Therapy Program hit home. The work which is being done at RHP is amazing and I am glad to be here helping Veterans find their way back home.",

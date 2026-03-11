@@ -84,6 +84,7 @@ function MultiChipGroup({ label, options, values, onToggle, idPrefix }) {
 export default function SdRsvpPage({ event }) {
   const navigate = useNavigate();
   const utm = useMemo(() => parseUtm(), []);
+  const isSaluteSocialPage = String(event?.slug || "").startsWith("salute-social-");
   const isMultiMode = event?.mode === "multi";
   const isFamilyMode = event?.mode === "family";
   const maxAttendees = Math.max(1, event?.limits?.maxAttendees || 1);
@@ -113,6 +114,11 @@ export default function SdRsvpPage({ event }) {
   useEffect(() => {
     if (event?.title) document.title = event.title;
   }, [event?.title]);
+
+  useEffect(() => {
+    if (!isSaluteSocialPage) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [isSaluteSocialPage, event?.key]);
 
   const loadCapacity = useCallback(async () => {
     if (!hasCapacityTracking) {
@@ -461,7 +467,7 @@ export default function SdRsvpPage({ event }) {
 
   return (
     <>
-      <main className="tdp-shell">
+      <main className={`tdp-shell ${isSaluteSocialPage ? "tdp-shell--mobile-form-first" : ""}`.trim()}>
         <div
           className="tdp-bg"
           style={{ "--bg-url": `url(${ShieldIMG})` }}

@@ -85,7 +85,7 @@ const ERA_OPTIONAL_STATUS = new Set([
 ]);
 
 const EVENT_CHOW_CALL_NOVO = "sd26-chow-call-novo-2026-04-14";
-const CHOW_CALL_MAX_FAMILY_SIZE = 4;
+const CHOW_CALL_MAX_FAMILY_SIZE = 2;
 const CHOW_CALL_EVENT_CAPACITY = 35;
 
 function normStr(v: unknown): string {

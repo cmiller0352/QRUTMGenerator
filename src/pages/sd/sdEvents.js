@@ -11,7 +11,7 @@ export const SD_EVENTS = {
     venueName: "Novo Brazil Brewing Imperial Beach",
     addressLines: ["535 Florence St", "Imperial Beach, CA 91932"],
     mode: "family",
-    limits: { maxPartySize: 4, capacityTotal: 35 },
+    limits: { maxPartySize: 2, capacityTotal: 35 },
   },
   saluteSocialJimmys: {
     key: "sd-salute-social-jimmys",

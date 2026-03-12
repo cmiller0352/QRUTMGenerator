@@ -8,6 +8,7 @@ import theme from './theme';
 import App from './App';
 import HistoryPage from './pages/HistoryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import InsightsPage from './pages/InsightsPage';
 import AppLayout, { PublicLayout } from './Layout';
 import DashboardPage from './pages/DashboardPage';
 import ThankYouPage from './pages/turkeydrop/thankyou';
@@ -75,6 +76,15 @@ const Root = () => (
                 element={
                   <PrivateRoute>
                     <DashboardPage />
+                  </PrivateRoute>
+                }
+              />
+
+              <Route
+                path="insights"
+                element={
+                  <PrivateRoute>
+                    <InsightsPage />
                   </PrivateRoute>
                 }
               />

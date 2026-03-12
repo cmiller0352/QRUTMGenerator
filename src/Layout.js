@@ -5,29 +5,35 @@ import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useUser } from './Components/useUser';
 import { supabase } from './utils/supabaseClient';
 
-const tabs = ['/', '/history', '/analytics', '/dashboard'];
+const navItems = [
+  { label: 'Generator', path: '/' },
+  { label: 'History', path: '/history' },
+  { label: 'Analytics', path: '/analytics' },
+  { label: 'Insights', path: '/insights' },
+  { label: 'Legacy Dashboard', path: '/dashboard' },
+  { label: 'RSVP Admin', path: '/admin/rsvps' },
+];
 
 const AppLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile } = useUser();
 
-  const currentTab = tabs.includes(location.pathname)
-    ? tabs.indexOf(location.pathname)
-    : 0;
+  const currentTab = navItems.some(({ path }) => path === location.pathname)
+    ? location.pathname
+    : false;
 
   return (
     <Box sx={{ px: 6, py: 4, width: '100%' }}>
       <Box sx={{ mb: 3 }}>
         <Tabs
           value={currentTab}
-          onChange={(_, newVal) => navigate(tabs[newVal])}
+          onChange={(_, newVal) => navigate(newVal)}
           centered
         >
-          <Tab label="Generator" />
-          <Tab label="History" />
-          <Tab label="Analytics" />
-          <Tab label="Dashboard" />
+          {navItems.map(({ label, path }) => (
+            <Tab key={path} label={label} value={path} />
+          ))}
         </Tabs>
       </Box>
 

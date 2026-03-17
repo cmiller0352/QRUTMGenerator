@@ -2,7 +2,7 @@
 import React from 'react';
 import { ToggleButton, ToggleButtonGroup, Typography, Stack } from '@mui/material';
 
-const SaveOptions = ({ linkType, setLinkType }) => (
+const SaveOptions = ({ linkType, setLinkType, disabled = false }) => (
   <Stack direction="row" spacing={2} alignItems="center" mb={2}>
     <Typography variant="body1" sx={{ whiteSpace: 'nowrap' }}>Save as:</Typography>
     <ToggleButtonGroup
@@ -11,6 +11,7 @@ const SaveOptions = ({ linkType, setLinkType }) => (
       onChange={(e, val) => val && setLinkType(val)}
       size="small"
       color="primary"
+      disabled={disabled}
     >
       <ToggleButton value="link">Link Only</ToggleButton>
       <ToggleButton value="qr">QR Only</ToggleButton>

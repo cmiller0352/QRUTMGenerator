@@ -1,6 +1,6 @@
 // src/Components/ExportButtons.js
 import React from 'react';
-import { Button, Stack } from '@mui/material';
+import { Button, CircularProgress, Stack } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ImageIcon from '@mui/icons-material/Image';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -17,6 +17,7 @@ const ExportButtons = ({
   backgroundColor,
   logoFileOrUrl,
   logoScale,
+  isSaving = false,
 }) => {
   const isLinkOnly = linkType === 'link';
   const handleSvgExport = async () => {
@@ -40,7 +41,7 @@ const ExportButtons = ({
         variant="outlined"
         onClick={() => navigator.clipboard.writeText(targetUrl)}
         startIcon={<ContentCopyIcon />}
-        disabled={!targetUrl}
+        disabled={!targetUrl || isSaving}
       >
         Copy URL
       </Button>
@@ -50,6 +51,7 @@ const ExportButtons = ({
             variant="outlined"
             onClick={() => copyCanvasImageToClipboard(canvasRef)}
             startIcon={<ImageIcon />}
+            disabled={isSaving}
           >
             Copy QR
           </Button>
@@ -57,6 +59,7 @@ const ExportButtons = ({
             variant="outlined"
             onClick={() => exportPng(canvasRef)}
             startIcon={<DownloadIcon />}
+            disabled={isSaving}
           >
             Export PNG
           </Button>
@@ -64,14 +67,19 @@ const ExportButtons = ({
             variant="outlined"
             onClick={handleSvgExport}
             startIcon={<DownloadIcon />}
-            disabled={!targetUrl}
+            disabled={!targetUrl || isSaving}
           >
             Export SVG
           </Button>
         </>
       )}
-      <Button variant="contained" onClick={onSave} startIcon={<SaveIcon />} disabled={disableSave}>
-        Save
+      <Button
+        variant="contained"
+        onClick={onSave}
+        startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+        disabled={disableSave || isSaving}
+      >
+        {isSaving ? 'Saving...' : 'Save'}
       </Button>
     </Stack>
   );

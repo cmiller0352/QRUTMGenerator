@@ -9,7 +9,7 @@ const MAX_LOGO_SCALE = 0.35;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-const LogoUpload = ({ logoFile, setLogoFile, logoScale, setLogoScale }) => {
+const LogoUpload = ({ logoFile, setLogoFile, logoScale, setLogoScale, disabled = false }) => {
   const sliderValue = useMemo(() => {
     const safeScale = clamp(
       typeof logoScale === 'number' ? logoScale : MIN_LOGO_SCALE,
@@ -30,12 +30,13 @@ const LogoUpload = ({ logoFile, setLogoFile, logoScale, setLogoScale }) => {
   return (
     <Stack direction="column" spacing={1} mb={2}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
+        <Button variant="outlined" component="label" startIcon={<UploadIcon />} disabled={disabled}>
           Upload Logo
           <input
             type="file"
             hidden
             accept="image/*"
+            disabled={disabled}
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) setLogoFile(file);
@@ -48,7 +49,7 @@ const LogoUpload = ({ logoFile, setLogoFile, logoScale, setLogoScale }) => {
           color="error"
           startIcon={<DeleteIcon />}
           onClick={() => setLogoFile(null)}
-          disabled={!logoFile}
+          disabled={!logoFile || disabled}
         >
           Remove Logo
         </Button>
@@ -61,6 +62,7 @@ const LogoUpload = ({ logoFile, setLogoFile, logoScale, setLogoScale }) => {
           step={1}
           value={sliderValue}
           onChange={handleSliderChange}
+          disabled={disabled}
           style={{ width: '200px' }}
         />
       </Stack>

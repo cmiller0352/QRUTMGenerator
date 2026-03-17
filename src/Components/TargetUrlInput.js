@@ -3,7 +3,7 @@ import React from 'react';
 import { Button, Stack, TextField } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
-const TargetUrlInput = ({ baseUrl, setBaseUrl, finalUrl, showBaseUrlError = false }) => {
+const TargetUrlInput = ({ baseUrl, setBaseUrl, finalUrl, showBaseUrlError = false, disabled = false }) => {
   const copyFinalUrl = async () => {
     if (!finalUrl) return;
     try {
@@ -31,6 +31,7 @@ const TargetUrlInput = ({ baseUrl, setBaseUrl, finalUrl, showBaseUrlError = fals
         fullWidth
         value={baseUrl}
         onChange={(e) => setBaseUrl(e.target.value)}
+        disabled={disabled}
         inputProps={{ style: { fontFamily: 'monospace', fontSize: '0.9rem' } }}
         margin="dense"
         error={showBaseUrlError}
@@ -43,6 +44,7 @@ const TargetUrlInput = ({ baseUrl, setBaseUrl, finalUrl, showBaseUrlError = fals
           value={finalUrl || ''}
           InputProps={{
             readOnly: true,
+            disabled,
             style: { fontFamily: 'monospace', fontSize: '0.9rem' },
           }}
           margin="dense"
@@ -51,7 +53,7 @@ const TargetUrlInput = ({ baseUrl, setBaseUrl, finalUrl, showBaseUrlError = fals
           variant="outlined"
           startIcon={<ContentCopyIcon />}
           onClick={copyFinalUrl}
-          disabled={!finalUrl}
+          disabled={!finalUrl || disabled}
           sx={{ whiteSpace: 'nowrap' }}
         >
           Copy Final URL

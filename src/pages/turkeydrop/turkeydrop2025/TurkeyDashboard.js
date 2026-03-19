@@ -10,7 +10,7 @@ const FALLBACK_SLOT_CAPACITY = 80;
 const OPEN_HOUSE_EVENT_ID = "open-house-2026";
 const OPEN_HOUSE_EVENT_NAME = "Open House (2026)";
 const OPEN_HOUSE_EVENT_DATE = "2026-03-26T00:00:00Z";
-const OPEN_HOUSE_CAPACITY = 100;
+const OPEN_HOUSE_CAPACITY = 120;
 const OPEN_HOUSE_EVENT = {
   id: OPEN_HOUSE_EVENT_ID,
   name: OPEN_HOUSE_EVENT_NAME,
@@ -1045,9 +1045,17 @@ export default function TurkeyDashboard() {
   const contactPct = contactCounts.total
     ? Math.round((contactCounts.yes / contactCounts.total) * 100)
     : 0;
+  const openHouseCapacity = useMemo(() => {
+    if (!isOpenHouseEvent) return 0;
+    const totalFromSlots = Object.values(slotCapacities || {}).reduce(
+      (sum, value) => sum + (Number(value) || 0),
+      0
+    );
+    return totalFromSlots || OPEN_HOUSE_CAPACITY;
+  }, [isOpenHouseEvent, slotCapacities]);
   const openHousePercentUsed =
-    OPEN_HOUSE_CAPACITY > 0
-      ? Math.min(100, Math.round(((ticketsTotal || 0) / OPEN_HOUSE_CAPACITY) * 100))
+    openHouseCapacity > 0
+      ? Math.min(100, Math.round(((ticketsTotal || 0) / openHouseCapacity) * 100))
       : 0;
   const slotSummaries = useMemo(() => {
     const countKeys = Object.keys(slotCounts || {});
@@ -1091,7 +1099,7 @@ export default function TurkeyDashboard() {
         >
           <span>Capacity used</span>
           <span>
-            {openHousePercentUsed}% ({ticketsTotal} seats / {OPEN_HOUSE_CAPACITY})
+            {openHousePercentUsed}% ({ticketsTotal} seats / {openHouseCapacity})
           </span>
         </div>
         <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>

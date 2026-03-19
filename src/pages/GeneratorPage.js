@@ -467,6 +467,9 @@ const GeneratorPage = () => {
         backgroundColor={backgroundColor}
         logoFileOrUrl={logoFile || shieldLogo}
         logoScale={logoScale}
+        shortCode={shortCode}
+        utmCampaign={utmCampaign}
+        utmSource={utmSource}
         isSaving={isSaving}
       />
       {linkType !== 'link' && (

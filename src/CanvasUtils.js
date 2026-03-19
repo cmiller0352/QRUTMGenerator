@@ -256,12 +256,12 @@ export function copyCanvasImageToClipboard(canvasRef) {
   });
 }
 
-export function exportPng(canvasRef) {
+export function exportPng(canvasRef, filename = 'qr-code.png') {
   if (!canvasRef || !canvasRef.current) return;
   const dataUrl = canvasRef.current.toDataURL('image/png');
   const link = document.createElement('a');
   link.href = dataUrl;
-  link.download = 'qr-code.png';
+  link.download = filename;
   link.click();
 }
 
@@ -272,6 +272,7 @@ export async function exportQrSvg({
   logoFileOrUrl = null,
   logoScale = 0.2,
   size = 1024,
+  filename = 'qr-code.svg',
 }) {
   if (!text) {
     console.warn('Cannot export SVG without QR text.');
@@ -332,7 +333,7 @@ export async function exportQrSvg({
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'qr-code.svg';
+  link.download = filename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }

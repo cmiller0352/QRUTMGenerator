@@ -6,6 +6,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import DownloadIcon from '@mui/icons-material/Download';
 import SaveIcon from '@mui/icons-material/Save';
 import { copyCanvasImageToClipboard, exportPng, exportQrSvg } from '../CanvasUtils';
+import buildQrFilename from '../utils/buildQrFilename';
 
 const ExportButtons = ({
   targetUrl,
@@ -17,9 +18,25 @@ const ExportButtons = ({
   backgroundColor,
   logoFileOrUrl,
   logoScale,
+  shortCode,
+  utmCampaign,
+  utmSource,
   isSaving = false,
 }) => {
   const isLinkOnly = linkType === 'link';
+  const filenamePng = buildQrFilename({
+    shortCode,
+    utmCampaign,
+    utmSource,
+    extension: 'png',
+  });
+  const filenameSvg = buildQrFilename({
+    shortCode,
+    utmCampaign,
+    utmSource,
+    extension: 'svg',
+  });
+
   const handleSvgExport = async () => {
     if (!targetUrl) return;
     try {
@@ -29,6 +46,7 @@ const ExportButtons = ({
         backgroundColor,
         logoFileOrUrl,
         logoScale,
+        filename: filenameSvg,
       });
     } catch (err) {
       console.error('Failed to export SVG', err);
@@ -57,7 +75,7 @@ const ExportButtons = ({
           </Button>
           <Button
             variant="outlined"
-            onClick={() => exportPng(canvasRef)}
+            onClick={() => exportPng(canvasRef, filenamePng)}
             startIcon={<DownloadIcon />}
             disabled={isSaving}
           >

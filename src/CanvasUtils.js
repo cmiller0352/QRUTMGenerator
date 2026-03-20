@@ -141,7 +141,7 @@ const prepareLogoAsset = async (source) => {
   return logoAssetCache.get(key);
 };
 
-export function drawQrWithLogo({
+export async function renderQrToCanvas({
   canvas,
   text,
   foregroundColor = '#000000',
@@ -154,7 +154,7 @@ export function drawQrWithLogo({
 }) {
   if (!canvas || !text) {
     console.warn('Missing required parameters to draw QR');
-    return;
+    return canvas;
   }
 
   const qr = QRCode(0, 'H');
@@ -183,7 +183,7 @@ export function drawQrWithLogo({
     }
   }
 
-  if (!logoFile) return;
+  if (!logoFile) return canvas;
 
   const safeLogoScale =
     typeof logoScale === 'number' && Number.isFinite(logoScale) && logoScale > 0
@@ -212,7 +212,7 @@ export function drawQrWithLogo({
   }
 
   logoModules = Math.min(totalModules, logoModules);
-  if (logoModules <= 0) return;
+  if (logoModules <= 0) return canvas;
 
   const logoSizePx = logoModules * moduleScale;
   const coord =
@@ -228,25 +228,32 @@ export function drawQrWithLogo({
     logoSizePx + 2 * padPx
   );
 
-  prepareLogoAsset(logoFile)
-    .then((asset) => {
-      if (!asset) return;
-      const { img, bounds } = asset;
-      ctx.drawImage(
-        img,
-        bounds.sx,
-        bounds.sy,
-        bounds.sw,
-        bounds.sh,
-        dx,
-        dy,
-        logoSizePx,
-        logoSizePx
-      );
-    })
-    .catch(() => {
-      // Already logged; no further action needed.
-    });
+  try {
+    const asset = await prepareLogoAsset(logoFile);
+    if (!asset) return canvas;
+    const { img, bounds } = asset;
+    ctx.drawImage(
+      img,
+      bounds.sx,
+      bounds.sy,
+      bounds.sw,
+      bounds.sh,
+      dx,
+      dy,
+      logoSizePx,
+      logoSizePx
+    );
+  } catch {
+    // Already logged; no further action needed.
+  }
+
+  return canvas;
+}
+
+export function drawQrWithLogo(options) {
+  renderQrToCanvas(options).catch(() => {
+    // Already logged; no further action needed.
+  });
 }
 
 export function copyCanvasImageToClipboard(canvasRef) {

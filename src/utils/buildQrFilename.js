@@ -9,6 +9,7 @@ export function slugify(value) {
 }
 
 export default function buildQrFilename({
+  title,
   shortCode,
   utmCampaign,
   utmSource,
@@ -16,13 +17,16 @@ export default function buildQrFilename({
 }) {
   const date = new Date().toISOString().slice(0, 10);
 
+  const safeTitle = slugify(title);
   const safeShort = slugify(shortCode);
   const safeCampaign = slugify(utmCampaign);
   const safeSource = slugify(utmSource);
 
   let base = '';
 
-  if (safeShort) {
+  if (safeTitle) {
+    base = safeTitle;
+  } else if (safeShort) {
     base = safeShort;
   } else if (safeCampaign && safeSource) {
     base = `${safeCampaign}-${safeSource}`;

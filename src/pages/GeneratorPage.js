@@ -30,9 +30,11 @@ import ToastAlerts from '../Components/ToastAlerts';
 import generateShortCode from '../utils/generateShortCode';
 import sanitizeShortcode, { withRandomSuffix } from '../utils/sanitizeShortcode';
 import sanitizeFilename from '../utils/sanitizeFilename';
+import { resolveQrLogoMetadata } from '../utils/resolveQrLogoMetadata';
 
 const SHORT_BASE = 'https://www.roadhome.io';
 const PDF_BUCKET = 'marketing-pdfs';
+const QR_LOGO_BUCKET = process.env.REACT_APP_QR_LOGO_BUCKET || 'qr-logos';
 
 // Safe URL validator
 const isValidUrl = (value) => {
@@ -158,6 +160,21 @@ const GeneratorPage = () => {
     return '';
   };
 
+  const getSavedTitle = (code) => {
+    const customShortValue = sanitizeShortcode(customShort);
+    const campaignValue = utmCampaign.trim();
+    const fileTitleValue = fileTitle.trim();
+
+    return customShortValue || campaignValue || fileTitleValue || code;
+  };
+
+  const getDisplayName = () => {
+    const customShortValue = sanitizeShortcode(customShort);
+    const fileTitleValue = fileTitle.trim();
+
+    return customShortValue || fileTitleValue || null;
+  };
+
   const previewShortcode = (() => {
     if (customShort) return sanitizeShortcode(customShort) || '(auto-generated)';
     if (mode === 'url' && useCampaignAsShort && utmCampaign) {
@@ -181,6 +198,9 @@ const GeneratorPage = () => {
     // 2) Ensure uniqueness
     const code = await resolveUniqueShortcode(chosen);
     const short = `${SHORT_BASE}/${code}`;
+    const qrPayloadUrl = short;
+    const title = getSavedTitle(code);
+    const displayName = getDisplayName();
 
     // 3) Build final target URL at save-time (safe because baseUrl validated above)
     const url = new URL(baseUrl);
@@ -190,15 +210,36 @@ const GeneratorPage = () => {
     if (utmCampaign) params.append('utm_campaign', utmCampaign);
     url.search = params.toString();
     const fullTargetUrl = url.toString();
+    let logoMetadata;
+
+    try {
+      logoMetadata = await resolveQrLogoMetadata({
+        supabase,
+        bucket: QR_LOGO_BUCKET,
+        shortCode: code,
+        logoFile,
+        defaultLogoUrl: shieldLogo,
+        logoScale,
+      });
+    } catch (logoError) {
+      console.error('❌ Error uploading logo:', logoError);
+      setErrorMessage(logoError.message || 'Logo upload failed. Please try again.');
+      setErrorSnackbar(true);
+      return;
+    }
 
     const redirectEntry = {
       short_code: code,
+      title,
+      display_name: displayName,
       full_url: fullTargetUrl,
       target_type: 'url',
     };
 
     const historyEntry = {
       base_url: baseUrl,
+      title,
+      display_name: displayName,
       utm_source: utmSource,
       utm_medium: utmMedium,
       utm_campaign: utmCampaign,
@@ -206,7 +247,12 @@ const GeneratorPage = () => {
       utm_content: '',
       qr_fg_color: foregroundColor,
       qr_bg_color: backgroundColor,
-      logo_url: '',
+      logo_url: logoMetadata.logo_url,
+      logo_scale: logoMetadata.logo_scale,
+      qr_payload_url: qrPayloadUrl,
+      logo_storage_path: logoMetadata.logo_storage_path,
+      logo_mime_type: logoMetadata.logo_mime_type,
+      logo_filename: logoMetadata.logo_filename,
       download_format: 'png',
       notes: '',
       full_url: fullTargetUrl,
@@ -226,6 +272,9 @@ const GeneratorPage = () => {
 
     if (redirectError) {
       console.error('❌ Error saving redirect record:', redirectError);
+      if (logoMetadata.uploaded) {
+        await supabase.storage.from(QR_LOGO_BUCKET).remove([logoMetadata.logo_storage_path]).catch(() => {});
+      }
       setErrorMessage(redirectError?.message || 'Error saving QR code. Please try again.');
       setErrorSnackbar(true);
       return;
@@ -235,6 +284,9 @@ const GeneratorPage = () => {
 
     if (historyError) {
       console.error('❌ Error saving generator history:', historyError);
+      if (logoMetadata.uploaded) {
+        await supabase.storage.from(QR_LOGO_BUCKET).remove([logoMetadata.logo_storage_path]).catch(() => {});
+      }
       setErrorMessage(historyError?.message || 'Short link saved, but generator history failed to save.');
       setErrorSnackbar(true);
       return;
@@ -270,9 +322,13 @@ const GeneratorPage = () => {
     const chosen = getChosenShortcodeSeed();
     const code = await resolveUniqueShortcode(chosen);
     const short = `${SHORT_BASE}/${code}`;
+    const qrPayloadUrl = short;
+    const title = getSavedTitle(code);
+    const displayName = getDisplayName();
     const safeFilename = sanitizeFilename(pdfFile.name || `${fileTitle}.pdf`);
     const filePath = `${code}/${Date.now()}-${safeFilename}`;
     const storageReference = `storage://${PDF_BUCKET}/${filePath}`;
+    let logoMetadata;
 
     const { error: uploadError } = await supabase.storage
       .from(PDF_BUCKET)
@@ -288,8 +344,27 @@ const GeneratorPage = () => {
       return;
     }
 
+    try {
+      logoMetadata = await resolveQrLogoMetadata({
+        supabase,
+        bucket: QR_LOGO_BUCKET,
+        shortCode: code,
+        logoFile,
+        defaultLogoUrl: shieldLogo,
+        logoScale,
+      });
+    } catch (logoError) {
+      console.error('❌ Error uploading logo:', logoError);
+      await supabase.storage.from(PDF_BUCKET).remove([filePath]).catch(() => {});
+      setErrorMessage(logoError.message || 'Logo upload failed. Please try again.');
+      setErrorSnackbar(true);
+      return;
+    }
+
     const redirectEntry = {
       short_code: code,
+      title,
+      display_name: displayName,
       full_url: storageReference,
       target_type: 'pdf',
       pdf_bucket: PDF_BUCKET,
@@ -304,6 +379,9 @@ const GeneratorPage = () => {
       await supabase.storage.from(PDF_BUCKET).remove([filePath]).catch((cleanupError) => {
         console.error('Failed to clean up uploaded PDF after redirect insert failure:', cleanupError);
       });
+      if (logoMetadata.uploaded) {
+        await supabase.storage.from(QR_LOGO_BUCKET).remove([logoMetadata.logo_storage_path]).catch(() => {});
+      }
       setErrorMessage(redirectError.message || 'PDF uploaded, but redirect record failed to save.');
       setErrorSnackbar(true);
       return;
@@ -311,6 +389,8 @@ const GeneratorPage = () => {
 
     const historyEntry = {
       base_url: '',
+      title,
+      display_name: displayName,
       utm_source: '',
       utm_medium: '',
       utm_campaign: '',
@@ -318,7 +398,12 @@ const GeneratorPage = () => {
       utm_content: '',
       qr_fg_color: foregroundColor,
       qr_bg_color: backgroundColor,
-      logo_url: '',
+      logo_url: logoMetadata.logo_url,
+      logo_scale: logoMetadata.logo_scale,
+      qr_payload_url: qrPayloadUrl,
+      logo_storage_path: logoMetadata.logo_storage_path,
+      logo_mime_type: logoMetadata.logo_mime_type,
+      logo_filename: logoMetadata.logo_filename,
       download_format: 'png',
       notes: '',
       full_url: short,
@@ -341,6 +426,9 @@ const GeneratorPage = () => {
       await supabase.storage.from(PDF_BUCKET).remove([filePath]).catch((cleanupError) => {
         console.error('Failed to clean up uploaded PDF after history insert failure:', cleanupError);
       });
+      if (logoMetadata.uploaded) {
+        await supabase.storage.from(QR_LOGO_BUCKET).remove([logoMetadata.logo_storage_path]).catch(() => {});
+      }
       setErrorMessage(historyError.message || 'PDF saved, but generator history failed to save.');
       setErrorSnackbar(true);
       return;

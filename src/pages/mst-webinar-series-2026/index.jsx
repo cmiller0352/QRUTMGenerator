@@ -264,27 +264,46 @@ export default function MstWebinarSeries2026Page() {
     document.dispatchEvent(ev);
   }, [captchaToken]);
 
-  const getTurnstileToken = useCallback(async () => {
-    if (!window.turnstile || !widgetId) return "";
-    if (captchaToken) return captchaToken;
-    return new Promise((resolve) => {
-      const onToken = (e) => {
-        resolve(e.detail.token);
-        document.removeEventListener("cf-turnstile-token", onToken);
-      };
-      document.addEventListener("cf-turnstile-token", onToken);
-      window.turnstile.execute(widgetId);
-      setTimeout(() => {
-        document.removeEventListener("cf-turnstile-token", onToken);
-        resolve("");
-      }, 3000);
-    });
-  }, [captchaToken, widgetId]);
-
   const refreshTurnstile = useCallback(() => {
     setCaptchaToken("");
     if (window.turnstile && widgetId) window.turnstile.reset(widgetId);
   }, [widgetId]);
+
+  const getTurnstileToken = useCallback(async () => {
+    if (!window.turnstile || !widgetId) return "";
+    if (captchaToken) return captchaToken;
+
+    console.debug("[MST Webinar RSVP] token request started");
+
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener("cf-turnstile-token", onToken);
+        resolve(value);
+      };
+
+      const onToken = (e) => {
+        const nextToken = e?.detail?.token || "";
+        console.debug("[MST Webinar RSVP] token received", {
+          hasToken: !!nextToken,
+        });
+        settle(nextToken);
+      };
+
+      document.addEventListener("cf-turnstile-token", onToken);
+      window.turnstile.execute(widgetId);
+
+      setTimeout(() => {
+        if (settled) return;
+        console.debug("[MST Webinar RSVP] token timeout / empty token");
+        refreshTurnstile();
+        settle("");
+      }, 10000);
+    });
+  }, [captchaToken, refreshTurnstile, widgetId]);
 
   const formatPhone = (d) => {
     const a = d.slice(0, 3);
@@ -339,7 +358,13 @@ export default function MstWebinarSeries2026Page() {
   }, []);
 
   const handleSubmit = async (e) => {
+    if (submitting) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
+    console.debug("[MST Webinar RSVP] submit start");
     setMessage("");
     setMessageCode("");
     setSubmitting(true);
@@ -382,7 +407,9 @@ export default function MstWebinarSeries2026Page() {
     let token = captchaToken;
     if (!token && window.turnstile && widgetId) token = await getTurnstileToken();
     if (!token) {
-      setMessage("Human verification failed. Please try again.");
+      console.debug("[MST Webinar RSVP] token timeout / empty token");
+      refreshTurnstile();
+      setMessage("Verification timed out. Please refresh the page and try again.");
       setSubmitting(false);
       return;
     }
@@ -421,8 +448,13 @@ export default function MstWebinarSeries2026Page() {
     };
 
     try {
+      console.debug("[MST Webinar RSVP] function invoke started");
       const { data, error } = await supabase.functions.invoke("reserve-rsvp", {
         body: payload,
+      });
+      console.debug("[MST Webinar RSVP] function invoke completed", {
+        hasData: !!data,
+        hasError: !!error,
       });
 
       let responseData = data && typeof data === "object" ? data : null;
@@ -431,6 +463,9 @@ export default function MstWebinarSeries2026Page() {
       }
 
       if (error && !responseData) {
+        console.debug("[MST Webinar RSVP] function invoke failed", {
+          message: error.message,
+        });
         setMessage("Something went wrong. Please email events@roadhomeprogram.org.");
         refreshTurnstile();
         return;
@@ -463,7 +498,10 @@ export default function MstWebinarSeries2026Page() {
         );
       }
       refreshTurnstile();
-    } catch {
+    } catch (err) {
+      console.debug("[MST Webinar RSVP] function invoke failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
       setMessage("Something went wrong. Please email events@roadhomeprogram.org.");
       refreshTurnstile();
     } finally {

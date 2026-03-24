@@ -36,6 +36,14 @@
       "destination": "/index.html"
     },
     {
+      "source": "/open-house/feedback",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/open-house/walk-in",
+      "destination": "/index.html"
+    },
+    {
       "source": "/open-house/thankyou",
       "destination": "/index.html"
     },

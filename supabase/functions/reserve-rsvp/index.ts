@@ -85,7 +85,7 @@ const ERA_OPTIONAL_STATUS = new Set([
 ]);
 
 const EVENT_CHOW_CALL_NOVO = "sd26-chow-call-novo-2026-04-14";
-const CHOW_CALL_MAX_FAMILY_SIZE = 2;
+const CHOW_CALL_MAX_FAMILY_SIZE = 4;
 const CHOW_CALL_EVENT_CAPACITY = 35;
 
 function normStr(v: unknown): string {
@@ -501,6 +501,7 @@ serve(async (req) => {
       console.log("[reserve-rsvp][debug] turnstile", {
         success: turnstilePassed,
         bypass: false,
+        error_codes: verify?.["error-codes"] ?? [],
       });
 
       if (!turnstilePassed) {
@@ -786,6 +787,9 @@ serve(async (req) => {
       }
 
       const insertedRows = Array.isArray(inserted) ? inserted : [];
+      const insertedIds = insertedRows
+        .map((row: any) => String(row?.id ?? "").trim())
+        .filter(Boolean);
 
       const eventIds = Array.from(new Set(sessionSelections.map((s) => s.event_id)));
       const eventNameMap = await getEventNameMap(sb, eventIds);
@@ -862,7 +866,9 @@ serve(async (req) => {
       return json({
         ok: true,
         mode: "rsvp",
+        id: insertedRows[0]?.id ?? null,
         inserted_count: insertedRows.length,
+        inserted_ids: insertedIds,
         session_count: sessionSelections.length,
         attendee_count: attendees.length,
         sessions: sessionSelections,

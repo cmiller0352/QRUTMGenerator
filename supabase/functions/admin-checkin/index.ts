@@ -17,6 +17,33 @@ const json = (body: Record<string, unknown>, status = 200) =>
     },
   });
 
+function normalizeIds(body: any): { ok: true; ids: string[] } | { ok: false; error: string } {
+  const ids = new Set<string>();
+
+  if (typeof body?.rsvp_id === "string") {
+    const trimmed = body.rsvp_id.trim();
+    if (trimmed) ids.add(trimmed);
+  }
+
+  if (Array.isArray(body?.rsvp_ids)) {
+    for (const value of body.rsvp_ids) {
+      if (typeof value !== "string") continue;
+      const trimmed = value.trim();
+      if (trimmed) ids.add(trimmed);
+    }
+  }
+
+  const normalized = Array.from(ids);
+  if (!normalized.length) {
+    return {
+      ok: false,
+      error: "At least one valid RSVP ID is required.",
+    };
+  }
+
+  return { ok: true, ids: normalized };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -28,14 +55,14 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => null);
-    const rsvpId = typeof body?.rsvp_id === "string" ? body.rsvp_id.trim() : "";
+    const normalized = normalizeIds(body);
 
-    if (!rsvpId) {
+    if (!normalized.ok) {
       return json({
         ok: false,
         code: "VALIDATION",
-        error: "rsvp_id is required.",
-      });
+        error: normalized.error,
+      }, 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -55,9 +82,10 @@ serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    const rows = normalized.ids.map((rsvp_id) => ({ rsvp_id }));
     const { error } = await admin
       .from("checkins")
-      .upsert({ rsvp_id: rsvpId }, { onConflict: "rsvp_id" });
+      .upsert(rows, { onConflict: "rsvp_id" });
 
     if (error) {
       return json({
@@ -67,10 +95,9 @@ serve(async (req) => {
       });
     }
 
-    return json({ ok: true });
+    return json({ ok: true, checked_in_count: normalized.ids.length });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected error";
     return json({ ok: false, code: "UNEXPECTED", error: msg }, 500);
   }
 });
-

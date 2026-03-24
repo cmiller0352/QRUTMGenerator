@@ -38,6 +38,8 @@ type FeedbackRow = {
   giving_interest: string | null;
   met_outreach: boolean;
   met_clinical: boolean;
+  met_administrative: boolean;
+  met_research: boolean;
   met_art_therapy: boolean;
   met_philanthropy: boolean;
   met_alum: boolean;
@@ -59,6 +61,8 @@ const NO_SHOW_REASON_FIELDS = [
 const MET_FIELDS = [
   "met_outreach",
   "met_clinical",
+  "met_administrative",
+  "met_research",
   "met_art_therapy",
   "met_philanthropy",
   "met_alum",
@@ -213,6 +217,8 @@ function validatePayload(body: Record<string, unknown>):
     giving_interest: null,
     met_outreach: false,
     met_clinical: false,
+    met_administrative: false,
+    met_research: false,
     met_art_therapy: false,
     met_philanthropy: false,
     met_alum: false,

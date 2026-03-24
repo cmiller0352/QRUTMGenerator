@@ -27,10 +27,12 @@ const noShowOptions = [
 
 const metStaffOptions = [
   { key: "met_outreach", label: "Outreach" },
-  { key: "met_clinical", label: "Clinical" },
+  { key: "met_clinical", label: "Clinical Providers" },
+  { key: "met_administrative", label: "Administrative" },
+  { key: "met_research", label: "Research" },
   { key: "met_art_therapy", label: "Art Therapy" },
   { key: "met_philanthropy", label: "Philanthropy" },
-  { key: "met_alum", label: "ALUM" },
+  { key: "met_alum", label: "Alumni" },
 ];
 
 const initialReasons = {
@@ -45,6 +47,8 @@ const initialReasons = {
 const initialMetStaff = {
   met_outreach: false,
   met_clinical: false,
+  met_administrative: false,
+  met_research: false,
   met_art_therapy: false,
   met_philanthropy: false,
   met_alum: false,
@@ -326,13 +330,15 @@ export default function OpenHouseFeedbackPage() {
       giving_interest: attended ? givingInterest : null,
       met_outreach: attended ? metStaff.met_outreach : false,
       met_clinical: attended ? metStaff.met_clinical : false,
+      met_administrative: attended ? metStaff.met_administrative : false,
+      met_research: attended ? metStaff.met_research : false,
       met_art_therapy: attended ? metStaff.met_art_therapy : false,
       met_philanthropy: attended ? metStaff.met_philanthropy : false,
       met_alum: attended ? metStaff.met_alum : false,
       additional_feedback: additionalFeedback.trim() || null,
     };
 
-    const { data, error } = await supabase.functions.invoke("quick-handler", {
+    const { data, error } = await supabase.functions.invoke("open-house-feedback", {
       body: payload,
     });
 
@@ -506,7 +512,7 @@ export default function OpenHouseFeedbackPage() {
                     data-field="understands_mission"
                     className={errorField === "understands_mission" ? "tdp-section tdp-err-ring" : undefined}
                   >
-                    <div className="tdp-chips-head" style={{ fontWeight: 700 }}>Do you fully understand RHP mission and the service they provide?*</div>
+                    <div className="tdp-chips-head" style={{ fontWeight: 700 }}>Do you fully understand RHP&apos;s mission and the services they provide?*</div>
                     <ToggleButtons
                       ariaLabel="Understands mission"
                       value={understandsMission}
@@ -569,7 +575,7 @@ export default function OpenHouseFeedbackPage() {
                     data-field="met_staff"
                     className={errorField === "met_staff" ? "tdp-section tdp-err-ring" : undefined}
                   >
-                    <div className="tdp-chips-head" style={{ fontWeight: 700 }}>Did you have the opportunity to meet Outreach, Clinical, Art Therapy, Philanthropy, ALUM?*</div>
+                    <div className="tdp-chips-head" style={{ fontWeight: 700 }}>What staff members did you have a chance to engage with at the event?*</div>
                     <CheckboxButtons
                       ariaLabel="Met staff groups"
                       values={metStaff}

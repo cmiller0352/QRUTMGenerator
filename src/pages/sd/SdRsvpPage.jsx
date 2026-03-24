@@ -304,6 +304,24 @@ export default function SdRsvpPage({ event }) {
     }
   };
 
+  const handleStatusChange = (index, nextStatus) => {
+    const isServiceStatus = SERVICE_STATUSES.has(nextStatus);
+
+    updateAttendee(index, (attendee) => ({
+      ...attendee,
+      status: nextStatus,
+      branches: isServiceStatus ? attendee.branches : [],
+      eras: isServiceStatus ? attendee.eras : [],
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [`attendees.${index}.status`]: undefined,
+      [`attendees.${index}.branches`]: undefined,
+      [`attendees.${index}.eras`]: undefined,
+    }));
+  };
+
   const toggleAttendeeChip = (index, field, option) => {
     updateAttendee(index, (attendee) => {
       const current = attendee[field];
@@ -347,6 +365,7 @@ export default function SdRsvpPage({ event }) {
 
     attendees.forEach((attendee, index) => {
       const prefix = `attendees.${index}`;
+      const isServiceStatus = SERVICE_STATUSES.has(attendee.status);
       if (!attendee.firstName.trim()) nextErrors[`${prefix}.firstName`] = "Required";
       if (!attendee.lastName.trim()) nextErrors[`${prefix}.lastName`] = "Required";
       if (!attendee.email.trim() || !isEmail(attendee.email.trim())) {
@@ -354,10 +373,10 @@ export default function SdRsvpPage({ event }) {
       }
       if (attendee.digits.length !== 10) nextErrors[`${prefix}.phone`] = "Required";
       if (!attendee.status) nextErrors[`${prefix}.status`] = "Required";
-      if (!attendee.branches.length) {
+      if (isServiceStatus && !attendee.branches.length) {
         nextErrors[`${prefix}.branches`] = "Select at least one branch.";
       }
-      if (SERVICE_STATUSES.has(attendee.status) && !attendee.eras.length) {
+      if (isServiceStatus && !attendee.eras.length) {
         nextErrors[`${prefix}.eras`] = `Attendee ${index + 1}: Select at least one era.`;
       }
     });
@@ -399,7 +418,7 @@ export default function SdRsvpPage({ event }) {
       email: attendee.email.trim(),
       phone: attendee.phone,
       status: attendee.status,
-      branch_of_service: attendee.branches,
+      branch_of_service: SERVICE_STATUSES.has(attendee.status) ? attendee.branches : [],
       era_list: SERVICE_STATUSES.has(attendee.status) ? attendee.eras : [],
     }));
 
@@ -553,6 +572,7 @@ export default function SdRsvpPage({ event }) {
               <fieldset disabled={submitting} style={{ border: 0, padding: 0, margin: 0 }}>
                 {attendees.map((attendee, index) => {
                   const prefix = `attendees.${index}`;
+                  const isServiceStatus = SERVICE_STATUSES.has(attendee.status);
                   return (
                     <div
                       key={`attendee-${index}`}
@@ -635,7 +655,7 @@ export default function SdRsvpPage({ event }) {
                         Status*
                         <select
                           value={attendee.status}
-                          onChange={(e) => updateAttendeeField(index, "status", e.target.value)}
+                          onChange={(e) => handleStatusChange(index, e.target.value)}
                           aria-invalid={!!errors[`${prefix}.status`]}
                         >
                           {STATUS_OPTIONS.map((opt) => (
@@ -649,37 +669,41 @@ export default function SdRsvpPage({ event }) {
                         )}
                       </label>
 
-                      <div
-                        data-field={`${prefix}.branches`}
-                        className={`tdp-section ${errors[`${prefix}.branches`] ? "tdp-err-ring" : ""}`}
-                      >
-                        <MultiChipGroup
-                          label="Branch of Service (select all that apply)*"
-                          options={BRANCHES}
-                          values={attendee.branches}
-                          onToggle={(option) => toggleAttendeeChip(index, "branches", option)}
-                          idPrefix={`${event.slug}-attendee-${index + 1}-branch`}
-                        />
-                        {errors[`${prefix}.branches`] && (
-                          <div className="tdp-err">{errors[`${prefix}.branches`]}</div>
-                        )}
-                      </div>
+                      {isServiceStatus && (
+                        <>
+                          <div
+                            data-field={`${prefix}.branches`}
+                            className={`tdp-section ${errors[`${prefix}.branches`] ? "tdp-err-ring" : ""}`}
+                          >
+                            <MultiChipGroup
+                              label="Branch of Service (select all that apply)*"
+                              options={BRANCHES}
+                              values={attendee.branches}
+                              onToggle={(option) => toggleAttendeeChip(index, "branches", option)}
+                              idPrefix={`${event.slug}-attendee-${index + 1}-branch`}
+                            />
+                            {errors[`${prefix}.branches`] && (
+                              <div className="tdp-err">{errors[`${prefix}.branches`]}</div>
+                            )}
+                          </div>
 
-                      <div
-                        data-field={`${prefix}.eras`}
-                        className={`tdp-section ${errors[`${prefix}.eras`] ? "tdp-err-ring" : ""}`}
-                      >
-                        <MultiChipGroup
-                          label="Service Era (select all that apply)"
-                          options={ERAS}
-                          values={attendee.eras}
-                          onToggle={(option) => toggleAttendeeChip(index, "eras", option)}
-                          idPrefix={`${event.slug}-attendee-${index + 1}-era`}
-                        />
-                        {errors[`${prefix}.eras`] && (
-                          <div className="tdp-err">{errors[`${prefix}.eras`]}</div>
-                        )}
-                      </div>
+                          <div
+                            data-field={`${prefix}.eras`}
+                            className={`tdp-section ${errors[`${prefix}.eras`] ? "tdp-err-ring" : ""}`}
+                          >
+                            <MultiChipGroup
+                              label="Service Era (select all that apply)"
+                              options={ERAS}
+                              values={attendee.eras}
+                              onToggle={(option) => toggleAttendeeChip(index, "eras", option)}
+                              idPrefix={`${event.slug}-attendee-${index + 1}-era`}
+                            />
+                            {errors[`${prefix}.eras`] && (
+                              <div className="tdp-err">{errors[`${prefix}.eras`]}</div>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}

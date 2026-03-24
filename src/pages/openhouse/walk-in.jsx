@@ -12,7 +12,7 @@ const CAPACITY = 120;
 const PARKING_MAPS_URL =
   "https://www.google.com/maps/search/?api=1&query=1640+W.+Jackson+Blvd.,+Chicago,+IL+60612";
 const TURNSTILE_TOKEN_WAIT_MS = 8000;
-const RESET_COUNTDOWN_SECONDS = 8;
+const RESET_COUNTDOWN_SECONDS = 13;
 
 const STATUS_OPTIONS = [
   { value: "", label: "Select status" },

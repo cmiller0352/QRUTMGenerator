@@ -8,7 +8,7 @@ import { supabase } from "../../utils/supabaseClient";
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 const EVENT_ID = "open-house-2026";
 const SLOT_ID = "8b5cbb3f-8db6-4027-a40f-76ca69bf0335";
-const CAPACITY = 120;
+const CAPACITY = 150;
 const PARKING_MAPS_URL =
   "https://www.google.com/maps/search/?api=1&query=1640+W.+Jackson+Blvd.,+Chicago,+IL+60612";
 

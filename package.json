@@ -35,6 +35,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "CI=true react-scripts test --watchAll=false",
+    "test:rsvp": "CI=true react-scripts test --watchAll=false src/pages/sd",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

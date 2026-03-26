@@ -220,7 +220,22 @@ function duplicateRsvpMessage(reason?: "phone" | "email" | "contact") {
 }
 
 function isWalkInSource(source: string): boolean {
-  return source === "open-house-walk-in";
+  return source === "walkin" || source === "open-house-walk-in";
+}
+
+function isWalkInMode(mode: string): boolean {
+  return mode === "admin_walkin";
+}
+
+function isWalkInPage(pagePath: string): boolean {
+  return pagePath.toLowerCase().includes("walk");
+}
+
+function shouldBypassTurnstile(body: Record<string, unknown>): boolean {
+  const source = normStr(body.source);
+  const mode = normStr(body.mode);
+  const pagePath = normStr(body.page_path ?? body.pagePath);
+  return isWalkInSource(source) || isWalkInMode(mode) || isWalkInPage(pagePath);
 }
 
 function isDuplicateSignupEmailError(err: any): boolean {
@@ -472,7 +487,9 @@ serve(async (req) => {
     const b = await req.json().catch(() => ({} as any));
 
     const source = normStr(b.source) || "rsvp";
-    const BYPASS = Deno.env.get("TURNSTILE_BYPASS") === "1" && isWalkInSource(source);
+    const walkInBypass = shouldBypassTurnstile(b);
+    const envBypass = Deno.env.get("TURNSTILE_BYPASS") === "1";
+    const BYPASS = walkInBypass || envBypass;
     const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY");
     const turnstileToken = b?.cf_turnstile_token ?? b?.cfTurnstileToken;
 
@@ -517,6 +534,8 @@ serve(async (req) => {
       console.log("[reserve-rsvp][debug] turnstile", {
         success: true,
         bypass: true,
+        walkin_bypass: walkInBypass,
+        env_bypass: envBypass,
       });
     }
 

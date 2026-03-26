@@ -1,18 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import LocalParkingOutlinedIcon from "@mui/icons-material/LocalParkingOutlined";
 import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
 import ShieldIMG from "../../assets/rhp-shield.png";
 import ShieldFooterIMG from "../../assets/shield.png";
 import { supabase } from "../../utils/supabaseClient";
 
-const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 const EVENT_ID = "open-house-2026";
 const SLOT_ID = "8b5cbb3f-8db6-4027-a40f-76ca69bf0335";
 const CAPACITY = 150;
-const WALK_IN_SOURCE = "open-house-walk-in";
+const WALK_IN_SOURCE = "walkin";
+const WALK_IN_MODE = "admin_walkin";
 const PARKING_MAPS_URL =
   "https://www.google.com/maps/search/?api=1&query=1640+W.+Jackson+Blvd.,+Chicago,+IL+60612";
-const TURNSTILE_TOKEN_WAIT_MS = 8000;
 const RESET_COUNTDOWN_SECONDS = 13;
 
 const STATUS_OPTIONS = [
@@ -163,10 +162,6 @@ function getRandomPrompt() {
   return SUCCESS_PROMPTS[Math.floor(Math.random() * SUCCESS_PROMPTS.length)];
 }
 
-function isHumanVerificationErrorCode(code) {
-  return typeof code === "string" && code.startsWith("TURNSTILE_");
-}
-
 export default function OpenHouseWalkInPage() {
   const params = new URLSearchParams(window.location.search);
   const utm_source = params.get("utm_source");
@@ -202,61 +197,16 @@ export default function OpenHouseWalkInPage() {
   const [resetCountdown, setResetCountdown] = useState(() =>
     previewSuccess ? RESET_COUNTDOWN_SECONDS : null
   );
-
-  const [scriptReady, setScriptReady] = useState(false);
-  const [widgetId, setWidgetId] = useState(null);
-  const [captchaToken, setCaptchaToken] = useState("");
   const [slotCapacity, setSlotCapacity] = useState(CAPACITY);
   const [seatsTaken, setSeatsTaken] = useState(null);
   const [seatsRemaining, setSeatsRemaining] = useState(null);
   const showServiceFields = SERVICE_STATUSES.has(status);
-  const turnstileExecutionRef = useRef(false);
-  const turnstilePromiseRef = useRef(null);
-  const turnstileResolveRef = useRef(null);
-  const turnstileTimeoutRef = useRef(null);
 
   const pageTitle = "Open House Walk-In Registration";
-
-  const markReady = useCallback((reason) => {
-    setScriptReady((prev) => {
-      if (!prev) {
-        // eslint-disable-next-line no-console
-        console.log(`[Turnstile] ready (${reason})`);
-      }
-      return true;
-    });
-  }, []);
 
   useEffect(() => {
     document.title = pageTitle;
   }, [pageTitle]);
-
-  const clearTurnstileWait = useCallback(() => {
-    if (turnstileTimeoutRef.current) {
-      window.clearTimeout(turnstileTimeoutRef.current);
-      turnstileTimeoutRef.current = null;
-    }
-  }, []);
-
-  const finishTurnstileExecution = useCallback((token = "") => {
-    clearTurnstileWait();
-    turnstileExecutionRef.current = false;
-    const resolver = turnstileResolveRef.current;
-    turnstileResolveRef.current = null;
-    turnstilePromiseRef.current = null;
-    if (typeof resolver === "function") {
-      resolver(token);
-    }
-  }, [clearTurnstileWait]);
-
-  const resetTurnstileWidget = useCallback((targetWidgetId = widgetId) => {
-    if (!window.turnstile || !targetWidgetId) return;
-    try {
-      window.turnstile.reset(targetWidgetId);
-    } catch {
-      // ignore widget reset failures
-    }
-  }, [widgetId]);
 
   const loadCapacity = useCallback(async () => {
     if (previewSuccess) return;
@@ -288,118 +238,11 @@ export default function OpenHouseWalkInPage() {
   }, [loadCapacity, previewSuccess]);
 
   useEffect(() => {
-    if (previewSuccess) return;
-    if (!SITE_KEY) return;
-    if (window.turnstile) {
-      markReady("window");
-      return;
-    }
-    const existing = document.getElementById("cf-turnstile-script");
-    if (existing) {
-      let tries = 0;
-      const interval = setInterval(() => {
-        tries += 1;
-        if (window.turnstile) {
-          markReady("poll");
-          clearInterval(interval);
-          return;
-        }
-        if (tries >= 20) clearInterval(interval);
-      }, 100);
-      return () => clearInterval(interval);
-    }
-    const script = document.createElement("script");
-    script.id = "cf-turnstile-script";
-    script.src =
-      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => markReady("script");
-    document.head.appendChild(script);
-    return () => {
-      script.onload = null;
-    };
-  }, [markReady, previewSuccess]);
-
-  useEffect(() => {
-    if (previewSuccess) return;
-    if (!scriptReady || !window.turnstile || widgetId || !SITE_KEY) return;
-    const id = window.turnstile.render("#walk-in-turnstile-container", {
-      sitekey: SITE_KEY,
-      size: "invisible",
-      callback: (token) => {
-        setCaptchaToken(token || "");
-        finishTurnstileExecution(token || "");
-      },
-      "expired-callback": () => {
-        setCaptchaToken("");
-        finishTurnstileExecution("");
-        resetTurnstileWidget(id);
-      },
-      "error-callback": () => {
-        setCaptchaToken("");
-        finishTurnstileExecution("");
-        resetTurnstileWidget(id);
-      },
-      retry: "auto",
-    });
-    setWidgetId(id);
-  }, [
-    finishTurnstileExecution,
-    previewSuccess,
-    resetTurnstileWidget,
-    scriptReady,
-    widgetId,
-  ]);
-
-  useEffect(() => {
     if (!showServiceFields) {
       setEras([]);
       setBranches([]);
     }
   }, [showServiceFields]);
-
-  const getTurnstileToken = useCallback(async () => {
-    if (!window.turnstile || !widgetId) return "";
-    if (captchaToken) return captchaToken;
-    if (turnstileExecutionRef.current && turnstilePromiseRef.current) {
-      return turnstilePromiseRef.current;
-    }
-    if (turnstilePromiseRef.current) {
-      return turnstilePromiseRef.current;
-    }
-
-    turnstilePromiseRef.current = new Promise((resolve) => {
-      turnstileResolveRef.current = resolve;
-      turnstileExecutionRef.current = true;
-      clearTurnstileWait();
-      turnstileTimeoutRef.current = window.setTimeout(() => {
-        setCaptchaToken("");
-        finishTurnstileExecution("");
-      }, TURNSTILE_TOKEN_WAIT_MS);
-
-      try {
-        window.turnstile.execute(widgetId);
-      } catch {
-        setCaptchaToken("");
-        finishTurnstileExecution("");
-      }
-    });
-
-    return turnstilePromiseRef.current;
-  }, [captchaToken, clearTurnstileWait, finishTurnstileExecution, widgetId]);
-
-  const refreshTurnstile = useCallback(() => {
-    clearTurnstileWait();
-    turnstileExecutionRef.current = false;
-    if (typeof turnstileResolveRef.current === "function") {
-      turnstileResolveRef.current("");
-    }
-    turnstileResolveRef.current = null;
-    turnstilePromiseRef.current = null;
-    setCaptchaToken("");
-    resetTurnstileWidget();
-  }, [clearTurnstileWait, resetTurnstileWidget]);
 
   const resetForm = useCallback(() => {
     setFirstName("");
@@ -420,8 +263,7 @@ export default function OpenHouseWalkInPage() {
     setErrors({});
     setSuccessPrompt("");
     setResetCountdown(null);
-    refreshTurnstile();
-  }, [refreshTurnstile]);
+  }, []);
 
   useEffect(() => {
     if (!successPrompt || resetCountdown === null) return undefined;
@@ -434,10 +276,6 @@ export default function OpenHouseWalkInPage() {
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [resetCountdown, resetForm, successPrompt]);
-
-  useEffect(() => () => {
-    clearTurnstileWait();
-  }, [clearTurnstileWait]);
 
   const formatPhone = (value) => {
     const a = value.slice(0, 3);
@@ -549,13 +387,6 @@ export default function OpenHouseWalkInPage() {
       return;
     }
 
-    setCaptchaToken("");
-    setSubmitStage("verifying");
-    let token = "";
-    if (!token && window.turnstile && widgetId) {
-      token = await getTurnstileToken();
-    }
-
     const payload = {
       event_id: EVENT_ID,
       slot_id: SLOT_ID,
@@ -579,7 +410,7 @@ export default function OpenHouseWalkInPage() {
       utm_term,
       utm_content,
       source: WALK_IN_SOURCE,
-      cf_turnstile_token: token,
+      mode: WALK_IN_MODE,
     };
 
     try {
@@ -593,8 +424,7 @@ export default function OpenHouseWalkInPage() {
       }
 
       if (error || responseData?.ok === false) {
-        const responseCode = responseData?.code || "";
-        setMessageCode(responseCode);
+        setMessageCode(responseData?.code || "");
         setMessage(
           `❌ ${
             responseData?.error ||
@@ -603,9 +433,6 @@ export default function OpenHouseWalkInPage() {
           }`
         );
         setSubmitStage("idle");
-        if (isHumanVerificationErrorCode(responseCode) || !token) {
-          refreshTurnstile();
-        }
         return;
       }
 
@@ -616,7 +443,6 @@ export default function OpenHouseWalkInPage() {
         );
         setMessageCode("CHECKIN_PENDING");
         setSubmitStage("idle");
-        refreshTurnstile();
         return;
       }
 
@@ -636,7 +462,6 @@ export default function OpenHouseWalkInPage() {
           }`
         );
         setSubmitStage("idle");
-        refreshTurnstile();
         return;
       }
 
@@ -645,14 +470,12 @@ export default function OpenHouseWalkInPage() {
       setMessage("");
       setMessageCode("");
       setSubmitStage("idle");
-      refreshTurnstile();
       setSuccessPrompt(getRandomPrompt());
       setResetCountdown(RESET_COUNTDOWN_SECONDS);
     } catch {
       setMessage("❌ Something went wrong. Please email events@roadhomeprogram.org.");
       setMessageCode("");
       setSubmitStage("idle");
-      refreshTurnstile();
     } finally {
       setSubmitting(false);
     }
@@ -1046,12 +869,6 @@ export default function OpenHouseWalkInPage() {
                     {submitStatusText}
                   </div>
                 ) : null}
-
-                <div
-                  id="walk-in-turnstile-container"
-                  style={{ height: 0, overflow: "hidden" }}
-                />
-
                 <button
                   className="tdp-submit"
                   type="submit"

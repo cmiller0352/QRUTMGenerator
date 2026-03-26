@@ -94,6 +94,7 @@ function FlyerLightbox({ item, onClose }) {
 export default function SanDiegoSaluteAndSocial() {
   const location = useLocation();
   const [activeFlyer, setActiveFlyer] = useState(null);
+  const seriesTimeLabel = "Wed-Thu 6-8 PM PT, Fri 5-7 PM PT";
 
   useEffect(() => {
     document.title = "San Diego Salute & Social";
@@ -198,7 +199,7 @@ export default function SanDiegoSaluteAndSocial() {
                 <img src={TimeIcon} alt="" aria-hidden="true" className="sdss-stat__icon" />
                 <div className="sdss-stat__copy">
                   <span className="sdss-stat__label">Time</span>
-                  <strong>6-8 PM PT</strong>
+                  <strong>{seriesTimeLabel}</strong>
                 </div>
               </div>
               <div className="sdss-stat">

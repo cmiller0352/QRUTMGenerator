@@ -49,7 +49,7 @@ export const SD_EVENTS = {
     slot_id: "feb20321-23d1-4b9f-90f3-f05d7c7d4b19",
     title: "San Diego Salute & Social",
     dateLabel: "Friday, April 17, 2026",
-    timeLabel: "6-8 PM PT",
+    timeLabel: "5-7 PM PT",
     venueName: "California Wild Ales",
     addressLines: ["4896 Newport Ave", "San Diego, CA 92107"],
     mode: "multi",

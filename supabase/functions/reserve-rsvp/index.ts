@@ -219,6 +219,10 @@ function duplicateRsvpMessage(reason?: "phone" | "email" | "contact") {
   return `It looks like this ${r} has already been used to RSVP for this event. Please refresh the page and try again, or use a different email/phone.`;
 }
 
+function isWalkInSource(source: string): boolean {
+  return source === "open-house-walk-in";
+}
+
 function isDuplicateSignupEmailError(err: any): boolean {
   if (err?.code === "23505") return true;
   const msg = String(err?.message || "");
@@ -467,7 +471,8 @@ serve(async (req) => {
   try {
     const b = await req.json().catch(() => ({} as any));
 
-    const BYPASS = Deno.env.get("TURNSTILE_BYPASS") === "1";
+    const source = normStr(b.source) || "rsvp";
+    const BYPASS = Deno.env.get("TURNSTILE_BYPASS") === "1" && isWalkInSource(source);
     const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY");
     const turnstileToken = b?.cf_turnstile_token ?? b?.cfTurnstileToken;
 
@@ -546,7 +551,6 @@ serve(async (req) => {
     const utm_content = normStr(b.utm_content ?? b.utmContent) || null;
 
     const notes = normStr(b.notes) || null;
-    const source = normStr(b.source) || "rsvp";
 
     const city = normStr(b.city) || "";
     const state = normStr(b.state ?? b.state_region ?? b.region) || "";

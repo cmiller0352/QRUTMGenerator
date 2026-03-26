@@ -9,6 +9,7 @@ const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 const EVENT_ID = "open-house-2026";
 const SLOT_ID = "8b5cbb3f-8db6-4027-a40f-76ca69bf0335";
 const CAPACITY = 150;
+const WALK_IN_SOURCE = "open-house-walk-in";
 const PARKING_MAPS_URL =
   "https://www.google.com/maps/search/?api=1&query=1640+W.+Jackson+Blvd.,+Chicago,+IL+60612";
 const TURNSTILE_TOKEN_WAIT_MS = 8000;
@@ -162,6 +163,10 @@ function getRandomPrompt() {
   return SUCCESS_PROMPTS[Math.floor(Math.random() * SUCCESS_PROMPTS.length)];
 }
 
+function isHumanVerificationErrorCode(code) {
+  return typeof code === "string" && code.startsWith("TURNSTILE_");
+}
+
 export default function OpenHouseWalkInPage() {
   const params = new URLSearchParams(window.location.search);
   const utm_source = params.get("utm_source");
@@ -244,6 +249,15 @@ export default function OpenHouseWalkInPage() {
     }
   }, [clearTurnstileWait]);
 
+  const resetTurnstileWidget = useCallback((targetWidgetId = widgetId) => {
+    if (!window.turnstile || !targetWidgetId) return;
+    try {
+      window.turnstile.reset(targetWidgetId);
+    } catch {
+      // ignore widget reset failures
+    }
+  }, [widgetId]);
+
   const loadCapacity = useCallback(async () => {
     if (previewSuccess) return;
     const { data, error } = await supabase
@@ -320,15 +334,23 @@ export default function OpenHouseWalkInPage() {
       "expired-callback": () => {
         setCaptchaToken("");
         finishTurnstileExecution("");
+        resetTurnstileWidget(id);
       },
       "error-callback": () => {
         setCaptchaToken("");
         finishTurnstileExecution("");
+        resetTurnstileWidget(id);
       },
       retry: "auto",
     });
     setWidgetId(id);
-  }, [finishTurnstileExecution, previewSuccess, scriptReady, widgetId]);
+  }, [
+    finishTurnstileExecution,
+    previewSuccess,
+    resetTurnstileWidget,
+    scriptReady,
+    widgetId,
+  ]);
 
   useEffect(() => {
     if (!showServiceFields) {
@@ -376,8 +398,8 @@ export default function OpenHouseWalkInPage() {
     turnstileResolveRef.current = null;
     turnstilePromiseRef.current = null;
     setCaptchaToken("");
-    if (window.turnstile && widgetId) window.turnstile.reset(widgetId);
-  }, [clearTurnstileWait, widgetId]);
+    resetTurnstileWidget();
+  }, [clearTurnstileWait, resetTurnstileWidget]);
 
   const resetForm = useCallback(() => {
     setFirstName("");
@@ -533,14 +555,6 @@ export default function OpenHouseWalkInPage() {
     if (!token && window.turnstile && widgetId) {
       token = await getTurnstileToken();
     }
-    if (!token) {
-      setMessage("❌ Human verification failed. Please try again.");
-      setMessageCode("");
-      setSubmitStage("idle");
-      setSubmitting(false);
-      refreshTurnstile();
-      return;
-    }
 
     const payload = {
       event_id: EVENT_ID,
@@ -564,7 +578,7 @@ export default function OpenHouseWalkInPage() {
       utm_campaign,
       utm_term,
       utm_content,
-      source: "open-house-walk-in",
+      source: WALK_IN_SOURCE,
       cf_turnstile_token: token,
     };
 
@@ -579,7 +593,8 @@ export default function OpenHouseWalkInPage() {
       }
 
       if (error || responseData?.ok === false) {
-        setMessageCode(responseData?.code || "");
+        const responseCode = responseData?.code || "";
+        setMessageCode(responseCode);
         setMessage(
           `❌ ${
             responseData?.error ||
@@ -588,7 +603,9 @@ export default function OpenHouseWalkInPage() {
           }`
         );
         setSubmitStage("idle");
-        refreshTurnstile();
+        if (isHumanVerificationErrorCode(responseCode) || !token) {
+          refreshTurnstile();
+        }
         return;
       }
 
@@ -628,6 +645,7 @@ export default function OpenHouseWalkInPage() {
       setMessage("");
       setMessageCode("");
       setSubmitStage("idle");
+      refreshTurnstile();
       setSuccessPrompt(getRandomPrompt());
       setResetCountdown(RESET_COUNTDOWN_SECONDS);
     } catch {

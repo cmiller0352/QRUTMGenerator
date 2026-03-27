@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
 import ShieldIMG from "../../assets/rhp-shield.png";
 import ShieldFooterIMG from "../../assets/shield.png";
@@ -6,6 +6,7 @@ import { supabase } from "../../utils/supabaseClient";
 import { mstSeries2026Data } from "../../data/mstSeries2026Data";
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
+const TURNSTILE_TOKEN_MAX_AGE_MS = 4 * 60 * 1000;
 
 const SESSION_EVENT_IDS = mstSeries2026Data.sessions.map((session) => session.eventId);
 
@@ -107,6 +108,10 @@ export default function MstWebinarSeries2026Page() {
   const [scriptReady, setScriptReady] = useState(false);
   const [widgetId, setWidgetId] = useState(null);
   const [captchaToken, setCaptchaToken] = useState("");
+  const submitInFlightRef = useRef(false);
+  const submitSucceededRef = useRef(false);
+  const tokenIssuedAtRef = useRef(0);
+  const tokenRequestRef = useRef(null);
 
   const showServiceFields = SERVICE_STATUSES.has(status);
 
@@ -212,6 +217,7 @@ export default function MstWebinarSeries2026Page() {
   useEffect(() => {
     if (!SITE_KEY) return;
     if (window.turnstile) {
+      console.debug("[MST Webinar RSVP] turnstile script ready (window)");
       setScriptReady(true);
       return;
     }
@@ -221,6 +227,7 @@ export default function MstWebinarSeries2026Page() {
       const interval = setInterval(() => {
         tries += 1;
         if (window.turnstile) {
+          console.debug("[MST Webinar RSVP] turnstile script ready (existing script)");
           setScriptReady(true);
           clearInterval(interval);
           return;
@@ -236,25 +243,68 @@ export default function MstWebinarSeries2026Page() {
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
     script.async = true;
     script.defer = true;
-    script.onload = () => setScriptReady(true);
+    script.onload = () => {
+      console.debug("[MST Webinar RSVP] turnstile script ready (loaded)");
+      setScriptReady(true);
+    };
     document.head.appendChild(script);
     return () => {
       script.onload = null;
     };
   }, []);
 
+  const isFreshTurnstileToken = useCallback(
+    (token = captchaToken) =>
+      !!token &&
+      !!tokenIssuedAtRef.current &&
+      Date.now() - tokenIssuedAtRef.current < TURNSTILE_TOKEN_MAX_AGE_MS,
+    [captchaToken]
+  );
+
+  const clearTurnstileToken = useCallback((reason, { reset = false } = {}) => {
+    console.debug("[MST Webinar RSVP] token cleared", { reason, reset });
+    tokenIssuedAtRef.current = 0;
+    setCaptchaToken("");
+    if (reset && window.turnstile && widgetId) {
+      window.turnstile.reset(widgetId);
+    }
+  }, [widgetId]);
+
   useEffect(() => {
     if (!scriptReady || !window.turnstile || widgetId || !SITE_KEY) return;
+    console.debug("[MST Webinar RSVP] turnstile widget render");
     const id = window.turnstile.render("#turnstile-container", {
       sitekey: SITE_KEY,
       size: "invisible",
-      callback: setCaptchaToken,
-      "expired-callback": () => setCaptchaToken(""),
-      "error-callback": () => setCaptchaToken(""),
+      callback: (token) => {
+        tokenIssuedAtRef.current = Date.now();
+        console.debug("[MST Webinar RSVP] token received", {
+          hasToken: !!token,
+          tokenAgeMs: 0,
+        });
+        setCaptchaToken(token || "");
+      },
+      "expired-callback": () => {
+        console.debug("[MST Webinar RSVP] token expired", {
+          submitting: submitInFlightRef.current,
+          succeeded: submitSucceededRef.current,
+        });
+        clearTurnstileToken("expired-callback", { reset: true });
+        if (!submitInFlightRef.current && !submitSucceededRef.current) {
+          setMessageCode("TURNSTILE_CLIENT_EXPIRED");
+          setMessage("Verification expired. Please submit again.");
+        }
+      },
+      "error-callback": () => {
+        console.debug("[MST Webinar RSVP] error path", {
+          stage: "turnstile-error-callback",
+        });
+        clearTurnstileToken("error-callback", { reset: true });
+      },
       retry: "auto",
     });
     setWidgetId(id);
-  }, [scriptReady, widgetId]);
+  }, [clearTurnstileToken, scriptReady, widgetId]);
 
   useEffect(() => {
     if (!captchaToken) return;
@@ -264,23 +314,25 @@ export default function MstWebinarSeries2026Page() {
     document.dispatchEvent(ev);
   }, [captchaToken]);
 
-  const refreshTurnstile = useCallback(() => {
-    setCaptchaToken("");
-    if (window.turnstile && widgetId) window.turnstile.reset(widgetId);
-  }, [widgetId]);
+  const refreshTurnstile = useCallback((reason = "manual-reset") => {
+    console.debug("[MST Webinar RSVP] turnstile reset", { reason });
+    clearTurnstileToken(reason, { reset: true });
+  }, [clearTurnstileToken]);
 
   const getTurnstileToken = useCallback(async () => {
     if (!window.turnstile || !widgetId) return "";
-    if (captchaToken) return captchaToken;
+    if (isFreshTurnstileToken()) return captchaToken;
+    if (tokenRequestRef.current) return tokenRequestRef.current;
 
     console.debug("[MST Webinar RSVP] token request started");
 
-    return new Promise((resolve) => {
+    tokenRequestRef.current = new Promise((resolve) => {
       let settled = false;
 
       const settle = (value) => {
         if (settled) return;
         settled = true;
+        tokenRequestRef.current = null;
         document.removeEventListener("cf-turnstile-token", onToken);
         resolve(value);
       };
@@ -303,7 +355,8 @@ export default function MstWebinarSeries2026Page() {
         settle("");
       }, 10000);
     });
-  }, [captchaToken, refreshTurnstile, widgetId]);
+    return tokenRequestRef.current;
+  }, [captchaToken, isFreshTurnstileToken, refreshTurnstile, widgetId]);
 
   const formatPhone = (d) => {
     const a = d.slice(0, 3);
@@ -322,19 +375,6 @@ export default function MstWebinarSeries2026Page() {
   };
 
   const isEmail = useCallback((value) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(value), []);
-
-  const extractResponseFromError = async (errorObj) => {
-    if (!errorObj?.context || typeof errorObj.context.json !== "function") {
-      return null;
-    }
-    try {
-      const parsed = await errorObj.context.json();
-      if (parsed && typeof parsed === "object") return parsed;
-    } catch {
-      // ignore parse failures
-    }
-    return null;
-  };
 
   const scrollToFirstError = useCallback((errs) => {
     const order = [
@@ -358,12 +398,18 @@ export default function MstWebinarSeries2026Page() {
   }, []);
 
   const handleSubmit = async (e) => {
-    if (submitting) {
+    console.debug("[MST Webinar RSVP] submit clicked", {
+      submitting,
+      locked: submitInFlightRef.current,
+    });
+    if (submitInFlightRef.current) {
       e.preventDefault();
       return;
     }
 
     e.preventDefault();
+    submitInFlightRef.current = true;
+    submitSucceededRef.current = false;
     console.debug("[MST Webinar RSVP] submit start");
     setMessage("");
     setMessageCode("");
@@ -400,16 +446,30 @@ export default function MstWebinarSeries2026Page() {
       setErrors(nextErrors);
       setMessage("Please fix the highlighted fields and try again.");
       scrollToFirstError(nextErrors);
+      submitInFlightRef.current = false;
       setSubmitting(false);
       return;
     }
 
     let token = captchaToken;
-    if (!token && window.turnstile && widgetId) token = await getTurnstileToken();
-    if (!token) {
-      console.debug("[MST Webinar RSVP] token timeout / empty token");
-      refreshTurnstile();
-      setMessage("Verification timed out. Please refresh the page and try again.");
+    const tokenFresh = isFreshTurnstileToken(token);
+    console.debug("[MST Webinar RSVP] token present before submit", {
+      hasToken: !!token,
+      fresh: tokenFresh,
+      tokenAgeMs: tokenIssuedAtRef.current ? Date.now() - tokenIssuedAtRef.current : null,
+    });
+    if (!tokenFresh) {
+      refreshTurnstile("submit-missing-or-stale-token");
+      token = await getTurnstileToken();
+    }
+    if (!isFreshTurnstileToken(token)) {
+      console.debug("[MST Webinar RSVP] error path", {
+        stage: "submit-missing-fresh-token",
+      });
+      refreshTurnstile("submit-no-fresh-token");
+      setMessageCode("TURNSTILE_CLIENT_EXPIRED");
+      setMessage("Verification expired. Please submit again.");
+      submitInFlightRef.current = false;
       setSubmitting(false);
       return;
     }
@@ -448,30 +508,31 @@ export default function MstWebinarSeries2026Page() {
     };
 
     try {
-      console.debug("[MST Webinar RSVP] function invoke started");
-      const { data, error } = await supabase.functions.invoke("reserve-rsvp", {
-        body: payload,
+      console.debug("[MST Webinar RSVP] fetch start");
+      const resp = await fetch(
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/reserve-rsvp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: process.env.REACT_APP_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+      console.debug("[MST Webinar RSVP] fetch response status", {
+        status: resp.status,
+        ok: resp.ok,
       });
-      console.debug("[MST Webinar RSVP] function invoke completed", {
-        hasData: !!data,
-        hasError: !!error,
-      });
+      const responseData = await resp.json().catch(() => null);
 
-      let responseData = data && typeof data === "object" ? data : null;
-      if (!responseData && error) {
-        responseData = await extractResponseFromError(error);
-      }
-
-      if (error && !responseData) {
-        console.debug("[MST Webinar RSVP] function invoke failed", {
-          message: error.message,
+      if (resp.status === 200) {
+        console.debug("[MST Webinar RSVP] success path", {
+          status: resp.status,
+          responseOk: responseData?.ok,
         });
-        setMessage("Something went wrong. Please email events@roadhomeprogram.org.");
-        refreshTurnstile();
-        return;
-      }
-
-      if (responseData?.ok === true) {
+        submitSucceededRef.current = true;
         try {
           const selectedLabels = selectedSessions.map((session) => session.label);
           sessionStorage.setItem(
@@ -486,8 +547,16 @@ export default function MstWebinarSeries2026Page() {
       }
 
       const code = responseData?.code || "";
+      console.debug("[MST Webinar RSVP] error path", {
+        stage: "fetch-response",
+        status: resp.status,
+        code,
+        error: responseData?.error || null,
+      });
       setMessageCode(code);
-      if (code === "DUPLICATE_RSVP") {
+      if (code.startsWith("TURNSTILE") || /Human verification/i.test(responseData?.error || "")) {
+        setMessage("Verification failed on the server. Please try again.");
+      } else if (code === "DUPLICATE_RSVP") {
         setMessage(
           "It looks like you already RSVP'd for one or more selected sessions. If you need help, email events@roadhomeprogram.org."
         );
@@ -499,12 +568,14 @@ export default function MstWebinarSeries2026Page() {
       }
       refreshTurnstile();
     } catch (err) {
-      console.debug("[MST Webinar RSVP] function invoke failed", {
+      console.debug("[MST Webinar RSVP] error path", {
+        stage: "fetch-exception",
         message: err instanceof Error ? err.message : String(err),
       });
       setMessage("Something went wrong. Please email events@roadhomeprogram.org.");
       refreshTurnstile();
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   };

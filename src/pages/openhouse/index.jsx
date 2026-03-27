@@ -4,6 +4,7 @@ import LocalParkingOutlinedIcon from "@mui/icons-material/LocalParkingOutlined";
 import ShieldIMG from "../../assets/rhp-shield.png";
 import ShieldFooterIMG from "../../assets/shield.png";
 import { supabase } from "../../utils/supabaseClient";
+import ClosedEventMessage from "./ClosedEventMessage";
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
 const EVENT_ID = "open-house-2026";
@@ -83,6 +84,7 @@ export default function OpenHouseRsvpPage() {
   const utm_campaign = params.get("utm_campaign");
   const utm_term = params.get("utm_term");
   const utm_content = params.get("utm_content");
+  const isEventClosed = EVENT_ID === "open-house-2026";
 
   const [countError, setCountError] = useState(false);
 
@@ -152,11 +154,13 @@ export default function OpenHouseRsvpPage() {
   }, []);
 
   useEffect(() => {
+    if (isEventClosed) return;
     loadCapacity();
-  }, [loadCapacity]);
+  }, [isEventClosed, loadCapacity]);
 
   // Turnstile script loader
   useEffect(() => {
+    if (isEventClosed) return;
     if (!SITE_KEY) return;
     if (window.turnstile) {
       markReady("window");
@@ -189,9 +193,10 @@ export default function OpenHouseRsvpPage() {
     return () => {
       script.onload = null;
     };
-  }, [markReady]);
+  }, [isEventClosed, markReady]);
 
   useEffect(() => {
+    if (isEventClosed) return;
     if (!scriptReady || !window.turnstile || widgetId || !SITE_KEY) return;
     const id = window.turnstile.render("#turnstile-container", {
       sitekey: SITE_KEY,
@@ -202,7 +207,7 @@ export default function OpenHouseRsvpPage() {
       retry: "auto",
     });
     setWidgetId(id);
-  }, [scriptReady, widgetId]);
+  }, [isEventClosed, scriptReady, widgetId]);
 
   useEffect(() => {
     if (!captchaToken) return;
@@ -516,243 +521,249 @@ export default function OpenHouseRsvpPage() {
                 View on Google Maps
               </a>
             </section>
-            <form className="tdp-form" onSubmit={handleSubmit} noValidate>
-              <fieldset disabled={submitting} style={{ border: 0, padding: 0 }}>
-                <div className="tdp-row">
-                  <label data-field="firstName">
-                    First name*
-                    <input
-                      value={firstName}
-                      onChange={(e) => {
-                        setFirstName(e.target.value);
-                        if (errors.firstName)
-                          setErrors((prev) => ({ ...prev, firstName: undefined }));
-                      }}
-                      aria-invalid={!!errors.firstName}
-                    />
-                  </label>
-                  <label data-field="lastName">
-                    Last name*
-                    <input
-                      value={lastName}
-                      onChange={(e) => {
-                        setLastName(e.target.value);
-                        if (errors.lastName)
-                          setErrors((prev) => ({ ...prev, lastName: undefined }));
-                      }}
-                      aria-invalid={!!errors.lastName}
-                    />
-                  </label>
-                </div>
-
-                <div className="tdp-row">
-                  <label data-field="email">
-                    Email*
-                    <input
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (errors.email)
-                          setErrors((prev) => ({ ...prev, email: undefined }));
-                      }}
-                      aria-invalid={!!errors.email}
-                    />
-                    {errors.email && <div className="tdp-err">{errors.email}</div>}
-                  </label>
-                  <label data-field="phone">
-                    Phone*
-                    <input
-                      value={phone}
-                      onChange={onPhoneChange}
-                      placeholder="(###) ###-####"
-                      aria-invalid={!!errors.phone}
-                    />
-                    {errors.phone && <div className="tdp-err">{errors.phone}</div>}
-                  </label>
-                </div>
-
-                <label data-field="status" className="tdp-status">
-                  Status*
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    aria-invalid={!!errors.status}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label data-field="familySize" className="tdp-status">
-                  <span style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
-                    Guest Count (including you)*
-                    <span aria-live="polite">Party Size: {familySize}</span>
-                  </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="tdp-ghost-btn"
-                      onClick={() => setFamilySize((prev) => clampFamilySize(prev - 1))}
-                      aria-label="Decrease guest count"
-                      disabled={familySize <= 1}
-                      style={{
-                        border: "1px solid #cfe5d8",
-                        background: "#e6f2eb",
-                        color: "#006633",
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                      }}
-                    >
-                      −
-                    </button>
-                    <input
-                      type="range"
-                      min={1}
-                      max={maxGuestCount}
-                      value={familySize}
-                      onChange={(e) =>
-                        setFamilySize(
-                          clampFamilySize(Math.min(maxGuestCount, Number(e.target.value)))
-                        )
-                      }
-                      aria-valuemin={1}
-                      aria-valuemax={maxGuestCount}
-                      aria-valuenow={familySize}
-                      aria-label="Guest count slider"
-                      style={{
-                        flex: 1,
-                        accentColor: "#006633",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="tdp-ghost-btn"
-                      onClick={() =>
-                        setFamilySize((prev) =>
-                          Math.min(maxGuestCount, clampFamilySize(prev + 1))
-                        )
-                      }
-                      aria-label="Increase guest count"
-                      disabled={familySize >= maxGuestCount}
-                      style={{
-                        border: "1px solid #cfe5d8",
-                        background: "#e6f2eb",
-                        color: "#006633",
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <span className="tdp-muted" style={{ display: "block", marginTop: 4 }}>
-                    Minimum 1 guest, maximum 10 total attendees.
-                  </span>
-                  {errors.familySize && (
-                    <div className="tdp-err">{errors.familySize}</div>
-                  )}
-                </label>
-
-                {showServiceFields && (
-                  <>
-                    <div
-                      data-field="eras"
-                      className={`tdp-section ${
-                        errors.eras ? "tdp-err-ring" : ""
-                      }`}
-                    >
-                      <MultiChipGroup
-                        label="Service era(s)*"
-                        options={ERAS}
-                        values={eras}
-                        setValues={setEras}
-                        id="era"
-                      />
-                      {errors.eras && (
-                        <div className="tdp-err">{errors.eras}</div>
-                      )}
+            {isEventClosed ? (
+              <ClosedEventMessage eventName={EVENT_DETAILS.title} />
+            ) : (
+              <>
+                <form className="tdp-form" onSubmit={handleSubmit} noValidate>
+                  <fieldset disabled={submitting} style={{ border: 0, padding: 0 }}>
+                    <div className="tdp-row">
+                      <label data-field="firstName">
+                        First name*
+                        <input
+                          value={firstName}
+                          onChange={(e) => {
+                            setFirstName(e.target.value);
+                            if (errors.firstName)
+                              setErrors((prev) => ({ ...prev, firstName: undefined }));
+                          }}
+                          aria-invalid={!!errors.firstName}
+                        />
+                      </label>
+                      <label data-field="lastName">
+                        Last name*
+                        <input
+                          value={lastName}
+                          onChange={(e) => {
+                            setLastName(e.target.value);
+                            if (errors.lastName)
+                              setErrors((prev) => ({ ...prev, lastName: undefined }));
+                          }}
+                          aria-invalid={!!errors.lastName}
+                        />
+                      </label>
                     </div>
 
-                    <div
-                      data-field="branches"
-                      className={`tdp-section ${
-                        errors.branches ? "tdp-err-ring" : ""
-                      }`}
-                    >
-                      <MultiChipGroup
-                        label="Branch(es) of service*"
-                        options={BRANCHES}
-                        values={branches}
-                        setValues={setBranches}
-                        id="branch"
-                      />
-                      {errors.branches && (
-                        <div className="tdp-err">{errors.branches}</div>
-                      )}
+                    <div className="tdp-row">
+                      <label data-field="email">
+                        Email*
+                        <input
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (errors.email)
+                              setErrors((prev) => ({ ...prev, email: undefined }));
+                          }}
+                          aria-invalid={!!errors.email}
+                        />
+                        {errors.email && <div className="tdp-err">{errors.email}</div>}
+                      </label>
+                      <label data-field="phone">
+                        Phone*
+                        <input
+                          value={phone}
+                          onChange={onPhoneChange}
+                          placeholder="(###) ###-####"
+                          aria-invalid={!!errors.phone}
+                        />
+                        {errors.phone && <div className="tdp-err">{errors.phone}</div>}
+                      </label>
                     </div>
-                  </>
-                )}
 
-                <label
-                  data-field="peerContact"
-                  className="tdp-check"
-                  style={{ marginTop: 20 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={peerContact}
-                    onChange={(e) => setPeerContact(e.target.checked)}
-                  />
-                  <span>
-                    Would you like to connect with a member of our Veteran
-                    Outreach Team to learn more about our program?
-                  </span>
-                </label>
-
-                <label className="tdp-check" style={{ marginTop: 12 }}>
-                  <input
-                    type="checkbox"
-                    checked={addToMailingList}
-                    onChange={(e) => setAddToMailingList(e.target.checked)}
-                  />
-                  <span>Add me to the Road Home Program mailing list.</span>
-                </label>
-
-                {message && (
-                  <>
-                    <div className="tdp-msg">{message}</div>
-                    {messageCode === "DUPLICATE_RSVP" && (
-                      <button
-                        type="button"
-                        className="tdp-ghost-btn"
-                        onClick={() => window.location.reload()}
-                        style={{ marginTop: 8 }}
+                    <label data-field="status" className="tdp-status">
+                      Status*
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        aria-invalid={!!errors.status}
                       >
-                        Refresh page
-                      </button>
+                        {STATUS_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label data-field="familySize" className="tdp-status">
+                      <span style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                        Guest Count (including you)*
+                        <span aria-live="polite">Party Size: {familySize}</span>
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                        <button
+                          type="button"
+                          className="tdp-ghost-btn"
+                          onClick={() => setFamilySize((prev) => clampFamilySize(prev - 1))}
+                          aria-label="Decrease guest count"
+                          disabled={familySize <= 1}
+                          style={{
+                            border: "1px solid #cfe5d8",
+                            background: "#e6f2eb",
+                            color: "#006633",
+                            width: 36,
+                            height: 36,
+                            borderRadius: "50%",
+                          }}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="range"
+                          min={1}
+                          max={maxGuestCount}
+                          value={familySize}
+                          onChange={(e) =>
+                            setFamilySize(
+                              clampFamilySize(Math.min(maxGuestCount, Number(e.target.value)))
+                            )
+                          }
+                          aria-valuemin={1}
+                          aria-valuemax={maxGuestCount}
+                          aria-valuenow={familySize}
+                          aria-label="Guest count slider"
+                          style={{
+                            flex: 1,
+                            accentColor: "#006633",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="tdp-ghost-btn"
+                          onClick={() =>
+                            setFamilySize((prev) =>
+                              Math.min(maxGuestCount, clampFamilySize(prev + 1))
+                            )
+                          }
+                          aria-label="Increase guest count"
+                          disabled={familySize >= maxGuestCount}
+                          style={{
+                            border: "1px solid #cfe5d8",
+                            background: "#e6f2eb",
+                            color: "#006633",
+                            width: 36,
+                            height: 36,
+                            borderRadius: "50%",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="tdp-muted" style={{ display: "block", marginTop: 4 }}>
+                        Minimum 1 guest, maximum 10 total attendees.
+                      </span>
+                      {errors.familySize && (
+                        <div className="tdp-err">{errors.familySize}</div>
+                      )}
+                    </label>
+
+                    {showServiceFields && (
+                      <>
+                        <div
+                          data-field="eras"
+                          className={`tdp-section ${
+                            errors.eras ? "tdp-err-ring" : ""
+                          }`}
+                        >
+                          <MultiChipGroup
+                            label="Service era(s)*"
+                            options={ERAS}
+                            values={eras}
+                            setValues={setEras}
+                            id="era"
+                          />
+                          {errors.eras && (
+                            <div className="tdp-err">{errors.eras}</div>
+                          )}
+                        </div>
+
+                        <div
+                          data-field="branches"
+                          className={`tdp-section ${
+                            errors.branches ? "tdp-err-ring" : ""
+                          }`}
+                        >
+                          <MultiChipGroup
+                            label="Branch(es) of service*"
+                            options={BRANCHES}
+                            values={branches}
+                            setValues={setBranches}
+                            id="branch"
+                          />
+                          {errors.branches && (
+                            <div className="tdp-err">{errors.branches}</div>
+                          )}
+                        </div>
+                      </>
                     )}
-                  </>
-                )}
 
-                <div
-                  id="turnstile-container"
-                  style={{ height: 0, overflow: "hidden" }}
-                />
+                    <label
+                      data-field="peerContact"
+                      className="tdp-check"
+                      style={{ marginTop: 20 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={peerContact}
+                        onChange={(e) => setPeerContact(e.target.checked)}
+                      />
+                      <span>
+                        Would you like to connect with a member of our Veteran
+                        Outreach Team to learn more about our program?
+                      </span>
+                    </label>
 
-                <button className="tdp-submit" type="submit" disabled={submitting}>
-                  {submitting ? "Submitting..." : "Submit RSVP"}
-                </button>
-              </fieldset>
-            </form>
+                    <label className="tdp-check" style={{ marginTop: 12 }}>
+                      <input
+                        type="checkbox"
+                        checked={addToMailingList}
+                        onChange={(e) => setAddToMailingList(e.target.checked)}
+                      />
+                      <span>Add me to the Road Home Program mailing list.</span>
+                    </label>
 
-            <p className="tdp-help" style={{ marginTop: 12 }}>
-              Prefer to RSVP by phone? Call <a href="tel:13129428387">(312) 942-8387</a>.
-            </p>
+                    {message && (
+                      <>
+                        <div className="tdp-msg">{message}</div>
+                        {messageCode === "DUPLICATE_RSVP" && (
+                          <button
+                            type="button"
+                            className="tdp-ghost-btn"
+                            onClick={() => window.location.reload()}
+                            style={{ marginTop: 8 }}
+                          >
+                            Refresh page
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    <div
+                      id="turnstile-container"
+                      style={{ height: 0, overflow: "hidden" }}
+                    />
+
+                    <button className="tdp-submit" type="submit" disabled={submitting}>
+                      {submitting ? "Submitting..." : "Submit RSVP"}
+                    </button>
+                  </fieldset>
+                </form>
+
+                <p className="tdp-help" style={{ marginTop: 12 }}>
+                  Prefer to RSVP by phone? Call <a href="tel:13129428387">(312) 942-8387</a>.
+                </p>
+              </>
+            )}
           </article>
         </section>
       </main>

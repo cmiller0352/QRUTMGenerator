@@ -6,6 +6,7 @@ import "./turkeydrop2025.css";
 import TDBanner from "../../../assets/TD Banner.png";
 import ShieldIMG from "../../../assets/rhp-shield.png";
 import Shield from "../../../assets/shield.png";
+import ClosedEventMessage from "../../openhouse/ClosedEventMessage";
 
 const EVENT_ID = "effingham-2025";
 const pageUrl = "https://www.roadhome.io/turkeydrop2025";
@@ -15,7 +16,7 @@ const description =
 const image = "https://www.roadhome.io/og/turkeydrop2025-banner.png"; // update when ready
 
 // Flip this to true when you are ready to close online registrations
-const REGISTRATION_CLOSED = false;
+const REGISTRATION_CLOSED = true;
 
 export default function TurkeyDrop2025() {
   const [counts, setCounts] = useState({
@@ -314,37 +315,7 @@ function ReservationCard() {
 function RegistrationClosedCard() {
   return (
     <article className="tdp-card">
-      <h2 className="tdp-card-title">Registration is now closed</h2>
-      <p className="tdp-card-sub">
-        Online reservations for the 2025 Effingham Turkey Drop are now closed
-        so our team can finalize packing and logistics.
-      </p>
-
-      <div className="tdp-block">
-        <h3>Event details</h3>
-        <p>
-          Saturday, <strong>November 15th</strong>
-          <br />
-          11:00 am — 2:00 pm
-          <br />
-          Family Care Associates
-          <br />
-          1106 N Merchant St, Effingham, IL 62401
-        </p>
-      </div>
-
-      <div className="tdp-block">
-        <h3>Already registered?</h3>
-        <p>
-          Please bring your confirmation email and a valid Military/Veteran ID
-          or DD214 to check in during your selected pickup window.
-        </p>
-      </div>
-
-      <p className="tdp-help">
-        Questions about your reservation? Call{" "}
-        <a href="tel:217-347-2597">217-347-2597</a>.
-      </p>
+      <ClosedEventMessage eventName="Effingham Turkey Drop 2025" />
     </article>
   );
 }

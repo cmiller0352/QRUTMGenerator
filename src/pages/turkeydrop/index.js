@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../../utils/supabaseClient";
+import ClosedEventMessage from "../openhouse/ClosedEventMessage";
 
 const EVENT_ID = "effingham-2025"; // events.id
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || "";
+const IS_EVENT_CLOSED = EVENT_ID === "effingham-2025";
 
 // Multi-select options
 const BRANCHES = [
@@ -76,6 +78,7 @@ export default function TurkeyDropRSVP() {
 
   // load Turnstile script once
   useEffect(() => {
+    if (IS_EVENT_CLOSED) return;
     if (!SITE_KEY) return; // no key set yet
     if (document.getElementById("cf-turnstile-script")) {
       setScriptReady(!!window.turnstile);
@@ -92,6 +95,7 @@ export default function TurkeyDropRSVP() {
 
   // render invisible widget once script is ready
   useEffect(() => {
+    if (IS_EVENT_CLOSED) return;
     if (!scriptReady || !window.turnstile || widgetId || !SITE_KEY) return;
     const id = window.turnstile.render("#turnstile-container", {
       sitekey: SITE_KEY,
@@ -106,12 +110,14 @@ export default function TurkeyDropRSVP() {
 
   // bridge: resolve when token arrives
   useEffect(() => {
+    if (IS_EVENT_CLOSED) return;
     if (!captchaToken) return;
     const ev = new CustomEvent("cf-turnstile-token", { detail: { token: captchaToken } });
     document.dispatchEvent(ev);
   }, [captchaToken]);
 
   const getTurnstileToken = async () => {
+    if (IS_EVENT_CLOSED) return "";
     if (!window.turnstile || !widgetId) return "";
     if (captchaToken) return captchaToken;
     return new Promise((resolve) => {
@@ -131,6 +137,7 @@ export default function TurkeyDropRSVP() {
 
   // load pickup windows
   useEffect(() => {
+    if (IS_EVENT_CLOSED) return;
     const load = async () => {
       setLoadingSlots(true);
       const { data, error } = await supabase
@@ -309,6 +316,18 @@ export default function TurkeyDropRSVP() {
       setSubmitting(false);
     }
   };
+
+  if (IS_EVENT_CLOSED) {
+    return (
+      <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "system-ui, sans-serif" }}>
+        <h1 style={{ marginBottom: 8 }}>Effingham Turkey Drop</h1>
+        <p style={{ marginTop: 0, color: "#555" }}>
+          Thank you to everyone who participated in this year&apos;s Turkey Drop.
+        </p>
+        <ClosedEventMessage eventName="Effingham Turkey Drop" />
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "system-ui, sans-serif" }}>

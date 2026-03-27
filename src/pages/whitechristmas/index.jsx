@@ -6,6 +6,7 @@ import "../turkeydrop/turkeydrop2025/turkeydrop2025.css";
 import ShieldIMG from "../../assets/rhp-shield.png";
 import Shield from "../../assets/shield.png";
 import FamilyNightBanner from "../../assets/FamilyNight.png";
+import ClosedEventMessage from "../openhouse/ClosedEventMessage";
 
 // Registration cutoff: Dec 11, 2025 at 11:59 PM America/Chicago
 const registrationClosed = new Date() > new Date("2025-12-12T00:00:00-06:00");
@@ -18,7 +19,7 @@ const description =
 const image = "https://www.roadhome.io/og/whitechristmas-banner.png"; // update when ready
 
 // Flip this to true when you are ready to close online registrations
-const REGISTRATION_CLOSED = false;
+const REGISTRATION_CLOSED = true;
 
 export default function WhiteChristmasEvent() {
   const [counts, setCounts] = useState({
@@ -204,30 +205,7 @@ function ReservationCard() {
 function RegistrationClosedCard() {
   return (
     <article className="tdp-card">
-      <h2 className="tdp-card-title">Registration is now closed</h2>
-      <p className="tdp-card-sub">
-        Online RSVPs for the Road Home Program Family Holiday Night are now
-        closed while we finalize the guest list.
-      </p>
-      <p className="tdp-sub" style={{ marginTop: 0, fontWeight: 600 }}>
-        Event date: {EVENT_DATE}
-      </p>
-
-      <div className="tdp-block">
-        <h3>Event details</h3>
-        <p>
-          Our celebration is on {EVENT_DATE}. Dinner at Giardino&apos;s Trattoria
-          and Pizzeria begins at 4:30 PM,
-          followed by a short walk to the Paramount Aurora Theatre for White
-          Christmas. Please refer to your confirmation email for arrival
-          instructions.
-        </p>
-      </div>
-
-      <p className="tdp-help">
-        Questions about an existing RSVP? Call{" "}
-        <a href="tel:13129428387">(312) 942-8387 (VETS)</a>.
-      </p>
+      <ClosedEventMessage eventName="Road Home Program Family Holiday Night" />
     </article>
   );
 }

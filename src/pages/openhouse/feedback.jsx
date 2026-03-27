@@ -22,6 +22,7 @@ const noShowOptions = [
     key: "reason_interest",
     label: "Lost interest or decided not to attend",
   },
+  { key: "reason_inclement_weather", label: "Inclement weather" },
   { key: "reason_transport", label: "Parking, traffic, transit issues" },
 ];
 
@@ -41,6 +42,7 @@ const initialReasons = {
   reason_forgot: false,
   reason_access: false,
   reason_interest: false,
+  reason_inclement_weather: false,
   reason_transport: false,
 };
 

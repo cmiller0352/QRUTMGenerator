@@ -19,6 +19,7 @@ type FeedbackRow = {
   reason_forgot: boolean;
   reason_access: boolean;
   reason_interest: boolean;
+  reason_inclement_weather: boolean;
   reason_transport: boolean;
   reason_other: string | null;
   rating: number | null;
@@ -55,6 +56,7 @@ const NO_SHOW_REASON_FIELDS = [
   "reason_forgot",
   "reason_access",
   "reason_interest",
+  "reason_inclement_weather",
   "reason_transport",
 ] as const;
 
@@ -198,6 +200,7 @@ function validatePayload(body: Record<string, unknown>):
     reason_forgot: false,
     reason_access: false,
     reason_interest: false,
+    reason_inclement_weather: false,
     reason_transport: false,
     reason_other: null,
     rating: null,
